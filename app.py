@@ -328,7 +328,7 @@ with tab_dash:
         fig5.update_layout(
             plot_bgcolor="#1a2f45", paper_bgcolor="#1a2f45",
             font_color="#e0f4ff", margin=dict(l=10, r=10, t=20, b=10),
-            xaxis=dict(showgrid=False), yaxis=dict(gridcolor="#1e3a52"),
+            xaxis=dict(showgrid=False, dtick="D1", tickformat="%d %b"), yaxis=dict(gridcolor="#1e3a52"),
             height=220,
         )
         st.plotly_chart(fig5, use_container_width=True)
