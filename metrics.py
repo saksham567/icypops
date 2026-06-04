@@ -16,6 +16,7 @@ Definitions (per product, lifetime cumulative):
 import json
 import pandas as pd
 import numpy as np
+from gsheets import PRODUCTS, NO_FRIDGE_PRODUCTS
 from pathlib import Path
 
 THRESHOLDS_PATH = Path(__file__).parent / "thresholds.json"
@@ -52,11 +53,22 @@ def compute_inventory(df_bought: pd.DataFrame, df_fridge: pd.DataFrame, products
     })
     inv = inv.set_index("Product")
 
+    # Zero out fridge-derived metrics for non-fridge products
+    for p in NO_FRIDGE_PRODUCTS:
+        if p in inv.index:
+            inv.loc[p, "from_stock"]           = 0
+            inv.loc[p, "to_vendor"]            = 0
+            inv.loc[p, "from_vendor"]          = 0
+            inv.loc[p, "Stock Outside Fridge"] = inv.loc[p, "Total Bought"]
+            inv.loc[p, "Stock Inside Fridge"]  = 0
+            inv.loc[p, "Sold"]                 = 0
+            inv.loc[p, "Stock Left"]           = inv.loc[p, "Total Bought"]
+
     thresholds = load_thresholds()
     inv["Reorder Threshold"]      = inv.index.map(lambda p: thresholds["reorder_threshold"].get(p, 0))
     inv["Fridge Threshold"]       = inv.index.map(lambda p: thresholds["fridge_threshold"].get(p, 0))
     inv["Needs Reorder"]          = inv["Stock Left"]          < inv["Reorder Threshold"]
-    inv["Fridge Stock Low"]       = inv["Stock Inside Fridge"] < inv["Fridge Threshold"]
+    inv["Fridge Stock Low"] = (inv["Stock Inside Fridge"] < inv["Fridge Threshold"]) & (~inv.index.isin(NO_FRIDGE_PRODUCTS))
 
     return inv
 
