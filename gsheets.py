@@ -29,8 +29,6 @@ PRODUCTS = [
     "Spicy Jeera - 80 ml", "CHATPATTI IMLI - 80 ml", "FAMILY PACK",
 ]
 
-NO_FRIDGE_PRODUCTS = ["FAMILY PACK"]
-
 FRIDGE_MODES = ["from stock", "to vendor", "from vendor"]
 
 EXPENSE_COLS  = ["Date", "Type", "Description", "Expense"]
