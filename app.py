@@ -222,19 +222,28 @@ with tab_dash:
             )
 
     # ── Top Products ─────────────────────────────────────────────────────────
-    section("🏆 Top Products by Units Sold")
-    top = compute_top_products(inv, n=10)
-    if top.empty or top["Sold"].sum() == 0:
-        st.info("No sales data yet.")
-    else:
-        fig2 = px.bar(
-            top, x="Sold", y="Product", orientation="h",
-            color="Sold", color_continuous_scale="teal",
-            labels={"Sold": "Units Sold"},
-        )
-        fig2.update_layout(**CHART_LAYOUT, coloraxis_showscale=False, height=300,
-                           yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig2, use_container_width=True)
+    section("🏆 Products — Units Bought vs Sold")
+    display_inv_chart = inv[["Total Bought", "Sold"]].reset_index()
+    display_inv_chart.columns = ["Product", "Total Bought", "Units Sold"]
+    display_inv_chart = display_inv_chart.sort_values("Units Sold", ascending=True)
+
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(
+        y=display_inv_chart["Product"], x=display_inv_chart["Total Bought"],
+        name="Total Bought", orientation="h", marker_color="#ffd166",
+        hovertemplate="<b>%{y}</b><br>Bought: %{x}<extra></extra>",
+    ))
+    fig2.add_trace(go.Bar(
+        y=display_inv_chart["Product"], x=display_inv_chart["Units Sold"],
+        name="Units Sold", orientation="h", marker_color="#00b4d8",
+        hovertemplate="<b>%{y}</b><br>Sold: %{x}<extra></extra>",
+    ))
+    fig2.update_layout(
+        **CHART_LAYOUT, barmode="group", height=600,
+        xaxis=dict(gridcolor="#1e3a52", title="Units"),
+        yaxis=dict(tickfont=dict(size=11)),
+    )
+    st.plotly_chart(fig2, use_container_width=True)
 
     # ── Daily Dispatch Chart ──────────────────────────────────────────────────
     section("📦 Daily Expected Revenue by Category (Settled Days Only)")
@@ -243,28 +252,31 @@ with tab_dash:
     if sold_trend.empty or sold_trend["Total Sold"].sum() == 0:
         st.info("No settled dispatch data yet. A day is counted only when both 'to vendor' and 'from vendor' entries exist.")
     else:
-        sold_trend["Rev 40ml"]   = sold_trend[PRODS_40].sum(axis=1) * 15
-        sold_trend["Rev 80ml"]   = sold_trend[PRODS_80].sum(axis=1) * 25
-        sold_trend["Rev FP"]     = sold_trend.get("FAMILY PACK", 0) * 220
-        sold_trend["Units 40ml"] = sold_trend[PRODS_40].sum(axis=1)
-        sold_trend["Units 80ml"] = sold_trend[PRODS_80].sum(axis=1)
-        sold_trend["Units FP"]   = sold_trend.get("FAMILY PACK", 0)
+        sold_trend["Rev 40ml"]    = sold_trend[PRODS_40].sum(axis=1) * 15
+        sold_trend["Rev 80ml"]    = sold_trend[PRODS_80].sum(axis=1) * 25
+        sold_trend["Rev FP"]      = sold_trend.get("FAMILY PACK", 0) * 220
+        sold_trend["Units 40ml"]  = sold_trend[PRODS_40].sum(axis=1)
+        sold_trend["Units 80ml"]  = sold_trend[PRODS_80].sum(axis=1)
+        sold_trend["Units FP"]    = sold_trend.get("FAMILY PACK", 0)
+        sold_trend["Rev Total"]   = sold_trend["Rev 40ml"] + sold_trend["Rev 80ml"] + sold_trend["Rev FP"]
+        sold_trend["Units Total"] = sold_trend["Units 40ml"] + sold_trend["Units 80ml"] + sold_trend["Units FP"]
 
         fig5 = go.Figure()
         for label, rev_col, units_col, color in [
             ("40ml",        "Rev 40ml", "Units 40ml", "#00b4d8"),
             ("80ml",        "Rev 80ml", "Units 80ml", "#06d6a0"),
             ("Family Pack", "Rev FP",   "Units FP",   "#ffd166"),
+            ("Total",       "Rev Total","Units Total", "#f72585"),
         ]:
             fig5.add_trace(go.Bar(
                 x=sold_trend["Date"], y=sold_trend[rev_col],
                 name=label, marker_color=color,
                 customdata=sold_trend[units_col],
-                hovertemplate=f"<b>{label}</b><br>Revenue: ₹%{{y:,.0f}}<br>Units Sold: %{{customdata}}<extra></extra>",
+                hovertemplate=f"<b>{label}</b><br>Revenue: ₹%{{y:,.0f}}<br>Units: %{{customdata}}<extra></extra>",
             ))
 
         fig5.update_layout(
-            **CHART_LAYOUT, barmode="group", height=300,
+            **CHART_LAYOUT, barmode="group", height=320,
             xaxis=dict(showgrid=False, dtick="D1", tickformat="%d %b"),
             yaxis=dict(gridcolor="#1e3a52", title="Expected Revenue (₹)"),
         )
