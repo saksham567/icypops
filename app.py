@@ -111,6 +111,10 @@ def section(title):
 PRODS_40 = [p for p in PRODUCTS if "40 ml" in p]
 PRODS_80 = [p for p in PRODUCTS if "80 ml" in p]
 
+MARGIN_40 = 8
+MARGIN_80 = 15
+MARGIN_FP = 154
+
 tab_dash, tab_entry = st.tabs(["📊  Dashboard", "✏️  Data Entry"])
 
 
@@ -163,6 +167,11 @@ with tab_dash:
     expected_revenue = expected_rev_40 + expected_rev_80 + expected_rev_fp
     revenue_gap      = total_revenue - expected_revenue
 
+    gross_40         = sold_40 * MARGIN_40
+    gross_80         = sold_80 * MARGIN_80
+    gross_fp         = sold_fp * MARGIN_FP
+    gross_total      = gross_40 + gross_80 + gross_fp
+
     # ── Revenue KPIs ─────────────────────────────────────────────────────────
     section("💰 Revenue")
     k1, k2, k3 = st.columns(3)
@@ -178,8 +187,14 @@ with tab_dash:
     # ── Expense & P&L KPIs ───────────────────────────────────────────────────
     section("🧾 Expense & P&L")
     k7, k8 = st.columns(2)
-    kpi(k7, "Total Expense", f"₹{total_expense:,.0f}", "Lifetime",        "")
-    kpi(k8, "Net P&L",       f"₹{net_pnl:,.0f}",      "Breakeven tracker","good" if net_pnl >= 0 else "alert")
+    kpi(k7, "Total Expense", f"₹{total_expense:,.0f}", "Lifetime",         "")
+    kpi(k8, "Net P&L",       f"₹{net_pnl:,.0f}",      "Breakeven tracker", "good" if net_pnl >= 0 else "alert")
+
+    k9, k10, k11, k12 = st.columns(4)
+    kpi(k9,  "Gross Profit — 40ml", f"₹{gross_40:,.0f}",    f"@ ₹8/unit · {int(sold_40)} units",   "good" if gross_40    >= 0 else "alert")
+    kpi(k10, "Gross Profit — 80ml", f"₹{gross_80:,.0f}",    f"@ ₹15/unit · {int(sold_80)} units",  "good" if gross_80    >= 0 else "alert")
+    kpi(k11, "Gross Profit — FP",   f"₹{gross_fp:,.0f}",    f"@ ₹154/unit · {int(sold_fp)} units", "good" if gross_fp    >= 0 else "alert")
+    kpi(k12, "Gross Profit — Total",f"₹{gross_total:,.0f}", f"Lifetime across all products",        "good" if gross_total >= 0 else "alert")
 
     # ── Alerts ───────────────────────────────────────────────────────────────
     section("🚨 Alerts")
@@ -252,21 +267,26 @@ with tab_dash:
     if sold_trend.empty or sold_trend["Total Sold"].sum() == 0:
         st.info("No settled dispatch data yet. A day is counted only when both 'to vendor' and 'from vendor' entries exist.")
     else:
-        sold_trend["Rev 40ml"]    = sold_trend[PRODS_40].sum(axis=1) * 15
-        sold_trend["Rev 80ml"]    = sold_trend[PRODS_80].sum(axis=1) * 25
-        sold_trend["Rev FP"]      = sold_trend.get("FAMILY PACK", 0) * 220
-        sold_trend["Units 40ml"]  = sold_trend[PRODS_40].sum(axis=1)
-        sold_trend["Units 80ml"]  = sold_trend[PRODS_80].sum(axis=1)
-        sold_trend["Units FP"]    = sold_trend.get("FAMILY PACK", 0)
-        sold_trend["Rev Total"]   = sold_trend["Rev 40ml"] + sold_trend["Rev 80ml"] + sold_trend["Rev FP"]
-        sold_trend["Units Total"] = sold_trend["Units 40ml"] + sold_trend["Units 80ml"] + sold_trend["Units FP"]
+        sold_trend["Rev 40ml"]     = sold_trend[PRODS_40].sum(axis=1) * 15
+        sold_trend["Rev 80ml"]     = sold_trend[PRODS_80].sum(axis=1) * 25
+        sold_trend["Rev FP"]       = sold_trend.get("FAMILY PACK", 0) * 220
+        sold_trend["Units 40ml"]   = sold_trend[PRODS_40].sum(axis=1)
+        sold_trend["Units 80ml"]   = sold_trend[PRODS_80].sum(axis=1)
+        sold_trend["Units FP"]     = sold_trend.get("FAMILY PACK", 0)
+        sold_trend["Rev Total"]    = sold_trend["Rev 40ml"] + sold_trend["Rev 80ml"] + sold_trend["Rev FP"]
+        sold_trend["Units Total"]  = sold_trend["Units 40ml"] + sold_trend["Units 80ml"] + sold_trend["Units FP"]
+        sold_trend["Gross Profit"] = (
+            sold_trend["Units 40ml"] * MARGIN_40 +
+            sold_trend["Units 80ml"] * MARGIN_80 +
+            sold_trend.get("FAMILY PACK", 0) * MARGIN_FP
+        )
 
         fig5 = go.Figure()
         for label, rev_col, units_col, color in [
-            ("40ml",        "Rev 40ml", "Units 40ml", "#00b4d8"),
-            ("80ml",        "Rev 80ml", "Units 80ml", "#06d6a0"),
-            ("Family Pack", "Rev FP",   "Units FP",   "#ffd166"),
-            ("Total",       "Rev Total","Units Total", "#f72585"),
+            ("40ml",        "Rev 40ml",  "Units 40ml",  "#00b4d8"),
+            ("80ml",        "Rev 80ml",  "Units 80ml",  "#06d6a0"),
+            ("Family Pack", "Rev FP",    "Units FP",    "#ffd166"),
+            ("Total",       "Rev Total", "Units Total", "#f72585"),
         ]:
             fig5.add_trace(go.Bar(
                 x=sold_trend["Date"], y=sold_trend[rev_col],
@@ -275,10 +295,16 @@ with tab_dash:
                 hovertemplate=f"<b>{label}</b><br>Revenue: ₹%{{y:,.0f}}<br>Units: %{{customdata}}<extra></extra>",
             ))
 
+        fig5.add_trace(go.Bar(
+            x=sold_trend["Date"], y=sold_trend["Gross Profit"],
+            name="Gross Profit", marker_color="#a855f7",
+            hovertemplate="<b>Gross Profit</b><br>₹%{y:,.0f}<extra></extra>",
+        ))
+
         fig5.update_layout(
             **CHART_LAYOUT, barmode="group", height=320,
             xaxis=dict(showgrid=False, dtick="D1", tickformat="%d %b"),
-            yaxis=dict(gridcolor="#1e3a52", title="Expected Revenue (₹)"),
+            yaxis=dict(gridcolor="#1e3a52", title="₹"),
         )
         st.plotly_chart(fig5, use_container_width=True)
 
