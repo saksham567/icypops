@@ -191,9 +191,9 @@ with tab_dash:
     kpi(k8, "Net P&L",       f"₹{net_pnl:,.0f}",      "Breakeven tracker", "good" if net_pnl >= 0 else "alert")
 
     k9, k10, k11, k12 = st.columns(4)
-    kpi(k9,  "Gross Profit — 40ml", f"₹{gross_40:,.0f}",    f"@ ₹8/unit · {int(sold_40)} units",   "good" if gross_40    >= 0 else "alert")
-    kpi(k10, "Gross Profit — 80ml", f"₹{gross_80:,.0f}",    f"@ ₹15/unit · {int(sold_80)} units",  "good" if gross_80    >= 0 else "alert")
-    kpi(k11, "Gross Profit — FP",   f"₹{gross_fp:,.0f}",    f"@ ₹154/unit · {int(sold_fp)} units", "good" if gross_fp    >= 0 else "alert")
+    kpi(k9,  "Gross Profit — 40ml", f"₹{gross_40:,.0f}",    f"@ ₹7/unit · {int(sold_40)} units",   "good" if gross_40    >= 0 else "alert")
+    kpi(k10, "Gross Profit — 80ml", f"₹{gross_80:,.0f}",    f"@ ₹10/unit · {int(sold_80)} units",  "good" if gross_80    >= 0 else "alert")
+    kpi(k11, "Gross Profit — FP",   f"₹{gross_fp:,.0f}",    f"@ ₹66/unit · {int(sold_fp)} units", "good" if gross_fp    >= 0 else "alert")
     kpi(k12, "Gross Profit — Total",f"₹{gross_total:,.0f}", f"Lifetime across all products",        "good" if gross_total >= 0 else "alert")
 
     # ── Alerts ───────────────────────────────────────────────────────────────
