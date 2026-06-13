@@ -111,9 +111,9 @@ def section(title):
 PRODS_40 = [p for p in PRODUCTS if "40 ml" in p]
 PRODS_80 = [p for p in PRODUCTS if "80 ml" in p]
 
-MARGIN_40 = 8
-MARGIN_80 = 15
-MARGIN_FP = 154
+MARGIN_40 = 7
+MARGIN_80 = 10
+MARGIN_FP = 66
 
 tab_dash, tab_entry = st.tabs(["📊  Dashboard", "✏️  Data Entry"])
 
