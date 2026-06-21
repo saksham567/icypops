@@ -5,7 +5,6 @@ Streamlit app connecting to Google Sheets via Service Account.
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from datetime import date
 
@@ -13,11 +12,7 @@ from gsheets import (
     load_sheet, append_row, ensure_headers,
     PRODUCTS, FRIDGE_MODES, SHEET_NAMES
 )
-from metrics import (
-    compute_inventory, compute_daily_revenue_expense,
-    compute_sold_trend, compute_expense_breakdown,
-    compute_top_products, load_thresholds,
-)
+from metrics import compute_inventory, compute_sold_trend
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -111,6 +106,28 @@ def section(title):
 PRODS_40 = [p for p in PRODUCTS if "40 ml" in p]
 PRODS_80 = [p for p in PRODUCTS if "80 ml" in p]
 
+def _product_group(product: str) -> int:
+    if "80 ml" in product:
+        return 0
+    if "40 ml" in product:
+        return 1
+    if product == "FAMILY PACK":
+        return 2
+    return 3
+
+
+def sort_inventory_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """80 ml first, then 40 ml, then Family Pack; within each group by Stock Inside Fridge descending."""
+    stock_col = "Stock Inside Fridge" if "Stock Inside Fridge" in df.columns else None
+    sort_df = df.copy()
+    sort_df["_group"] = sort_df.index.map(_product_group)
+    if stock_col:
+        return (
+            sort_df.sort_values(["_group", stock_col], ascending=[True, False])
+            .drop(columns="_group")
+        )
+    return sort_df.sort_values("_group").drop(columns="_group")
+
 MARGIN_40 = 7
 MARGIN_80 = 10
 MARGIN_FP = 66
@@ -146,8 +163,7 @@ with tab_dash:
     df_bought_safe = df_bought if not df_bought.empty else _empty_bought()
     df_fridge_safe = df_fridge if not df_fridge.empty else _empty_fridge()
 
-    inv  = compute_inventory(df_bought_safe, df_fridge_safe, PRODUCTS)
-    pnl  = compute_daily_revenue_expense(df_revenue, df_expense)
+    inv = compute_inventory(df_bought_safe, df_fridge_safe, PRODUCTS)
 
     # ── Derived KPI values ────────────────────────────────────────────────────
     total_revenue    = df_revenue["Revenue"].sum() if not df_revenue.empty else 0
@@ -238,27 +254,42 @@ with tab_dash:
 
     # ── Top Products ─────────────────────────────────────────────────────────
     section("🏆 Products — Units Bought vs Sold")
-    display_inv_chart = inv[["Total Bought", "Sold"]].reset_index()
+    chart_inv = sort_inventory_rows(inv[["Total Bought", "Sold", "Stock Inside Fridge"]])
+    display_inv_chart = chart_inv[["Total Bought", "Sold"]].reset_index()
     display_inv_chart.columns = ["Product", "Total Bought", "Units Sold"]
-    display_inv_chart = display_inv_chart.sort_values("Units Sold", ascending=True)
+    display_inv_chart["Difference"] = display_inv_chart["Total Bought"] - display_inv_chart["Units Sold"]
+
+    bought_text = display_inv_chart["Total Bought"].astype(int).astype(str)
+    sold_text = display_inv_chart["Units Sold"].astype(int).astype(str)
 
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(
         y=display_inv_chart["Product"], x=display_inv_chart["Total Bought"],
         name="Total Bought", orientation="h", marker_color="#ffd166",
+        text=bought_text, textposition="inside", insidetextanchor="start",
+        textfont=dict(color="#0d1b2a", size=11),
         hovertemplate="<b>%{y}</b><br>Bought: %{x}<extra></extra>",
     ))
     fig2.add_trace(go.Bar(
         y=display_inv_chart["Product"], x=display_inv_chart["Units Sold"],
         name="Units Sold", orientation="h", marker_color="#00b4d8",
+        text=sold_text, textposition="inside", insidetextanchor="start",
+        textfont=dict(color="#0d1b2a", size=11),
         hovertemplate="<b>%{y}</b><br>Sold: %{x}<extra></extra>",
     ))
     fig2.update_layout(
         **CHART_LAYOUT, barmode="group", height=600,
         xaxis=dict(gridcolor="#1e3a52", title="Units"),
-        yaxis=dict(tickfont=dict(size=11)),
+        yaxis=dict(tickfont=dict(size=11), categoryorder="array", categoryarray=list(display_inv_chart["Product"])),
     )
     st.plotly_chart(fig2, use_container_width=True)
+
+    st.dataframe(
+        display_inv_chart.style
+            .format({c: "{:.0f}" for c in ["Total Bought", "Units Sold", "Difference"]})
+            .set_properties(**{"background-color": "#1a2f45", "color": "#e0f4ff"}),
+        use_container_width=True, hide_index=True,
+    )
 
     # ── Daily Dispatch Chart ──────────────────────────────────────────────────
     section("📦 Daily Expected Revenue by Category (Settled Days Only)")
@@ -310,8 +341,9 @@ with tab_dash:
 
     # ── Full Inventory Grid ───────────────────────────────────────────────────
     section("📋 Full Inventory Snapshot")
-    display_inv = inv[["Total Bought", "Stock Outside Fridge", "Stock Inside Fridge",
-                        "Sold", "Stock Left", "Needs Reorder", "Fridge Stock Low"]].reset_index()
+    display_inv = sort_inventory_rows(
+        inv[["Total Bought", "Stock Inside Fridge", "Sold", "Stock Left", "Needs Reorder", "Fridge Stock Low"]]
+    ).reset_index()
 
     def _color_flags(val):
         if val is True:  return "background-color:#ff4d6d33;color:#ff4d6d;font-weight:600"
@@ -321,8 +353,7 @@ with tab_dash:
     st.dataframe(
         display_inv.style
             .map(_color_flags, subset=["Needs Reorder", "Fridge Stock Low"])
-            .format({c: "{:.0f}" for c in ["Total Bought", "Stock Outside Fridge",
-                                            "Stock Inside Fridge", "Sold", "Stock Left"]})
+            .format({c: "{:.0f}" for c in ["Total Bought", "Stock Inside Fridge", "Sold", "Stock Left"]})
             .set_properties(**{"background-color": "#1a2f45", "color": "#e0f4ff"}),
         use_container_width=True, hide_index=True, height=420,
     )
