@@ -24,50 +24,152 @@ st.set_page_config(
 
 # ── Styling ───────────────────────────────────────────────────────────────────
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ice-teal:  #00b4d8; --ice-green: #06d6a0; --ice-yellow: #ffd166;
-    --ice-dark:  #0d1b2a; --ice-card:  #1a2f45; --ice-text:   #e0f4ff;
-    --ice-muted: #7faacc; --red-alert: #ff4d6d; --amber:      #fca311;
+    --bg-base:     #080c14;
+    --bg-surface:  #111827;
+    --bg-elevated: #1a2234;
+    --border:      rgba(148, 163, 184, 0.12);
+    --border-strong: rgba(148, 163, 184, 0.22);
+    --text-primary:   #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
+    --accent:      #38bdf8;
+    --accent-soft: rgba(56, 189, 248, 0.12);
+    --success:     #34d399;
+    --warning:     #fbbf24;
+    --danger:      #f87171;
+    --radius:      14px;
+    --shadow:      0 4px 24px rgba(0, 0, 0, 0.35);
   }
-  .stApp { background-color: var(--ice-dark); color: var(--ice-text); }
+
+  html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .stApp {
+    background: linear-gradient(165deg, #080c14 0%, #0f172a 45%, #0a1628 100%);
+    color: var(--text-primary);
+  }
+
+  .block-container { padding-top: 1.5rem; max-width: 1400px; }
+
+  .app-header {
+    background: linear-gradient(135deg, var(--bg-elevated) 0%, rgba(26, 34, 52, 0.6) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.75rem;
+    margin-bottom: 0.5rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .app-logo {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    box-shadow: 0 4px 16px rgba(56, 189, 248, 0.25);
+  }
+  .app-title {
+    margin: 0; font-size: 1.65rem; font-weight: 700; letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #f1f5f9 0%, #94a3b8 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .app-subtitle { margin: 0.15rem 0 0 0; font-size: 0.875rem; color: var(--text-secondary); }
+  .app-badge {
+    margin-left: auto; padding: 0.35rem 0.85rem;
+    background: var(--accent-soft); border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase;
+  }
 
   .metric-card {
-    background: var(--ice-card); border-radius: 12px;
-    padding: 18px 20px; border-left: 4px solid var(--ice-teal); margin-bottom: 8px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.15rem 1.25rem; margin-bottom: 0.65rem;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2); position: relative; overflow: hidden;
   }
-  .metric-card.alert { border-left-color: var(--red-alert); }
-  .metric-card.warn  { border-left-color: var(--amber); }
-  .metric-card.good  { border-left-color: var(--ice-green); }
-  .metric-value { font-size: 2rem; font-weight: 700; color: var(--ice-teal); }
-  .metric-label { font-size: 0.85rem; color: var(--ice-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-  .metric-sub   { font-size: 0.8rem; color: var(--ice-muted); margin-top: 4px; }
+  .metric-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent); opacity: 0.85;
+  }
+  .metric-card.alert::before { background: linear-gradient(90deg, var(--danger), #fb7185); }
+  .metric-card.warn::before  { background: linear-gradient(90deg, var(--warning), #f59e0b); }
+  .metric-card.good::before  { background: linear-gradient(90deg, var(--success), #6ee7b7); }
+  .metric-card.neutral::before { background: linear-gradient(90deg, #64748b, #94a3b8); opacity: 0.5; }
+
+  .metric-label {
+    font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 600; margin-bottom: 0.35rem;
+  }
+  .metric-value {
+    font-size: 1.75rem; font-weight: 700; color: var(--text-primary);
+    letter-spacing: -0.02em; line-height: 1.2;
+  }
+  .metric-card.good .metric-value  { color: var(--success); }
+  .metric-card.alert .metric-value { color: var(--danger); }
+  .metric-card.warn .metric-value  { color: var(--warning); }
+  .metric-sub { font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.4rem; }
 
   .section-header {
-    font-size: 1.1rem; font-weight: 600; color: var(--ice-teal);
-    border-bottom: 1px solid #1e3a52; padding-bottom: 6px; margin: 20px 0 12px 0;
+    font-size: 0.95rem; font-weight: 600; color: var(--text-primary);
+    letter-spacing: -0.01em; padding: 0.5rem 0 0.65rem 0;
+    margin: 1.75rem 0 0.85rem 0; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 0.5rem;
   }
-  .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+  .section-header::before {
+    content: ''; width: 4px; height: 1rem;
+    background: linear-gradient(180deg, var(--accent), #818cf8); border-radius: 2px;
+  }
+
+  .stTabs [data-baseweb="tab-list"] {
+    gap: 6px; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 5px;
+  }
   .stTabs [data-baseweb="tab"] {
-    border-radius: 8px 8px 0 0; padding: 8px 24px;
-    background: var(--ice-card); color: var(--ice-muted); font-weight: 600;
+    border-radius: 8px; padding: 0.55rem 1.35rem; background: transparent;
+    color: var(--text-muted); font-weight: 600; font-size: 0.875rem; border: none;
   }
-  .stTabs [aria-selected="true"] { background: var(--ice-teal) !important; color: #fff !important; }
-  .stNumberInput input, .stTextInput input, .stSelectbox > div { background: var(--ice-card) !important; }
-  .stDataFrame { border-radius: 10px; overflow: hidden; }
-  #MainMenu, footer { visibility: hidden; }
+  .stTabs [aria-selected="true"] {
+    background: var(--bg-elevated) !important; color: var(--accent) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  .stNumberInput input, .stTextInput input, .stSelectbox > div,
+  .stDateInput input, .stTextArea textarea {
+    background: var(--bg-elevated) !important; border-color: var(--border) !important;
+    color: var(--text-primary) !important; border-radius: 10px !important;
+  }
+  .stButton > button { border-radius: 10px; font-weight: 600; }
+  .stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+    border: none; box-shadow: 0 4px 14px rgba(56, 189, 248, 0.3);
+  }
+  .stButton > button[kind="secondary"] {
+    background: var(--bg-elevated); border: 1px solid var(--border-strong); color: var(--text-secondary);
+  }
+
+  .stDataFrame { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+  .stAlert { border-radius: 12px; border: 1px solid var(--border); }
+  hr { border-color: var(--border) !important; margin: 1rem 0 !important; }
+  #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Header ────────────────────────────────────────────────────────────────────
-col_logo, col_title = st.columns([1, 9])
-with col_logo:
-    st.markdown("<div style='font-size:3rem;padding-top:8px'>🍦</div>", unsafe_allow_html=True)
-with col_title:
-    st.markdown("<h1 style='margin:0;color:#00b4d8;font-size:2rem'>IcyPops</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='margin:0;color:#7faacc;font-size:0.85rem'>Inventory & Business Dashboard</p>", unsafe_allow_html=True)
-
-st.markdown("---")
+st.markdown("""
+<div class="app-header">
+  <div class="app-logo">🍦</div>
+  <div>
+    <h1 class="app-title">IcyPops</h1>
+    <p class="app-subtitle">Inventory & Business Intelligence</p>
+  </div>
+  <span class="app-badge">Live Dashboard</span>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Connect & load ────────────────────────────────────────────────────────────
 try:
@@ -94,9 +196,21 @@ def kpi(col, label, value, sub="", kind=""):
     )
 
 CHART_LAYOUT = dict(
-    plot_bgcolor="#1a2f45", paper_bgcolor="#1a2f45",
-    font_color="#e0f4ff", margin=dict(l=10, r=10, t=20, b=10),
-    legend=dict(bgcolor="#1a2f45"),
+    plot_bgcolor="rgba(17, 24, 39, 0)",
+    paper_bgcolor="rgba(17, 24, 39, 0)",
+    font=dict(family="Inter, sans-serif", color="#94a3b8", size=12),
+    margin=dict(l=10, r=24, t=36, b=10),
+    legend=dict(
+        bgcolor="rgba(26, 34, 52, 0.9)",
+        bordercolor="rgba(148, 163, 184, 0.15)",
+        borderwidth=1,
+        font=dict(color="#e2e8f0", size=11),
+    ),
+    hoverlabel=dict(
+        bgcolor="#1a2234",
+        bordercolor="rgba(56, 189, 248, 0.3)",
+        font=dict(family="Inter, sans-serif", color="#f1f5f9", size=12),
+    ),
 )
 
 def section(title):
@@ -116,14 +230,26 @@ def _product_group(product: str) -> int:
     return 3
 
 
+def sort_chart_products(df: pd.DataFrame) -> pd.DataFrame:
+    """80 ml (top) → 40 ml → Family Pack (bottom); within each group smallest (Bought − Sold) diff at top."""
+    sort_df = df.copy()
+    sort_df["_group"] = sort_df.index.map(_product_group)
+    sort_df["_diff"] = sort_df["Total Bought"] - sort_df["Sold"]
+    # Plotly h-bar: last row = top; group descending puts 80 ml on top; diff descending puts smallest diff on top
+    return (
+        sort_df.sort_values(["_group", "_diff"], ascending=[False, False])
+        .drop(columns=["_group", "_diff"])
+    )
+
+
 def sort_inventory_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """80 ml first, then 40 ml, then Family Pack; within each group by Stock Inside Fridge descending."""
+    """80 ml → 40 ml → Family Pack; within each group by Stock Inside Fridge ascending."""
     stock_col = "Stock Inside Fridge" if "Stock Inside Fridge" in df.columns else None
     sort_df = df.copy()
     sort_df["_group"] = sort_df.index.map(_product_group)
     if stock_col:
         return (
-            sort_df.sort_values(["_group", stock_col], ascending=[True, False])
+            sort_df.sort_values(["_group", stock_col], ascending=[True, True])
             .drop(columns="_group")
         )
     return sort_df.sort_values("_group").drop(columns="_group")
@@ -132,7 +258,7 @@ MARGIN_40 = 7
 MARGIN_80 = 10
 MARGIN_FP = 66
 
-tab_dash, tab_entry = st.tabs(["📊  Dashboard", "✏️  Data Entry"])
+tab_dash, tab_entry = st.tabs(["Dashboard", "Data Entry"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -189,21 +315,21 @@ with tab_dash:
     gross_total      = gross_40 + gross_80 + gross_fp
 
     # ── Revenue KPIs ─────────────────────────────────────────────────────────
-    section("💰 Revenue")
+    section("Revenue")
     k1, k2, k3 = st.columns(3)
     kpi(k1, "Total Actual Revenue",   f"₹{total_revenue:,.0f}",   "Actual collected",               "good")
-    kpi(k2, "Total Expected Revenue", f"₹{expected_revenue:,.0f}", f"{int(total_sold)} units sold",  "")
+    kpi(k2, "Total Expected Revenue", f"₹{expected_revenue:,.0f}", f"{int(total_sold)} units sold",  "neutral")
     kpi(k3, "Revenue Gap",            f"₹{revenue_gap:,.0f}",     "Actual − Expected",               "good" if revenue_gap >= 0 else "alert")
 
     k4, k5, k6 = st.columns(3)
-    kpi(k4, "Expected — 40ml", f"₹{expected_rev_40:,.0f}", f"@ ₹15/unit · {int(sold_40)} units", "")
-    kpi(k5, "Expected — 80ml", f"₹{expected_rev_80:,.0f}", f"@ ₹25/unit · {int(sold_80)} units", "")
-    kpi(k6, "Expected — FP",   f"₹{expected_rev_fp:,.0f}", f"@ ₹220/unit · {int(sold_fp)} units","")
+    kpi(k4, "Expected — 40ml", f"₹{expected_rev_40:,.0f}", f"@ ₹15/unit · {int(sold_40)} units", "neutral")
+    kpi(k5, "Expected — 80ml", f"₹{expected_rev_80:,.0f}", f"@ ₹25/unit · {int(sold_80)} units", "neutral")
+    kpi(k6, "Expected — FP",   f"₹{expected_rev_fp:,.0f}", f"@ ₹220/unit · {int(sold_fp)} units", "neutral")
 
     # ── Expense & P&L KPIs ───────────────────────────────────────────────────
-    section("🧾 Expense & P&L")
+    section("Expense & P&L")
     k7, k8 = st.columns(2)
-    kpi(k7, "Total Expense", f"₹{total_expense:,.0f}", "Lifetime",         "")
+    kpi(k7, "Total Expense", f"₹{total_expense:,.0f}", "Lifetime",         "neutral")
     kpi(k8, "Net P&L",       f"₹{net_pnl:,.0f}",      "Breakeven tracker", "good" if net_pnl >= 0 else "alert")
 
     k9, k10, k11, k12 = st.columns(4)
@@ -213,7 +339,7 @@ with tab_dash:
     kpi(k12, "Gross Profit — Total",f"₹{gross_total:,.0f}", f"Lifetime across all products",        "good" if gross_total >= 0 else "alert")
 
     # ── Alerts ───────────────────────────────────────────────────────────────
-    section("🚨 Alerts")
+    section("Alerts")
     k9, _ = st.columns(2)
     alert_kind = "alert" if (reorder_count + fridge_low) > 0 else "good"
     kpi(k9, "Active Alerts", f"{reorder_count + fridge_low}",
@@ -221,7 +347,7 @@ with tab_dash:
 
     col_a1, col_a2 = st.columns(2)
     with col_a1:
-        section("🔴 Reorder Alerts — Stock Left Below Threshold")
+        section("Reorder Alerts — Stock Left Below Threshold")
         reorder_df = inv[inv["Needs Reorder"]][["Stock Left", "Reorder Threshold", "Total Bought", "Sold"]].copy()
         if reorder_df.empty:
             st.success("✅ All products have sufficient stock.")
@@ -237,7 +363,7 @@ with tab_dash:
             )
 
     with col_a2:
-        section("🟡 Fridge Stock Alerts — In-Fridge Below Threshold")
+        section("Fridge Stock Alerts — In-Fridge Below Threshold")
         fridge_df = inv[inv["Fridge Stock Low"]][["Stock Inside Fridge", "Fridge Threshold"]].copy()
         if fridge_df.empty:
             st.success("✅ Fridge stock looks healthy.")
@@ -252,47 +378,56 @@ with tab_dash:
                 use_container_width=True, hide_index=True,
             )
 
-    # ── Top Products ─────────────────────────────────────────────────────────
-    section("🏆 Products — Units Bought vs Sold")
-    chart_inv = sort_inventory_rows(inv[["Total Bought", "Sold", "Stock Inside Fridge"]])
-    display_inv_chart = chart_inv[["Total Bought", "Sold"]].reset_index()
+    # ── Products chart ───────────────────────────────────────────────────────
+    section("Products — Units Bought vs Sold")
+    chart_inv = sort_chart_products(inv[["Total Bought", "Sold"]])
+    display_inv_chart = chart_inv.reset_index()
     display_inv_chart.columns = ["Product", "Total Bought", "Units Sold"]
     display_inv_chart["Difference"] = display_inv_chart["Total Bought"] - display_inv_chart["Units Sold"]
 
-    bought_text = display_inv_chart["Total Bought"].astype(int).astype(str)
-    sold_text = display_inv_chart["Units Sold"].astype(int).astype(str)
+    hover_data = display_inv_chart[["Total Bought", "Units Sold", "Difference"]].values
+    y_order = list(display_inv_chart["Product"])
 
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(
         y=display_inv_chart["Product"], x=display_inv_chart["Total Bought"],
-        name="Total Bought", orientation="h", marker_color="#ffd166",
-        text=bought_text, textposition="inside", insidetextanchor="start",
-        textfont=dict(color="#0d1b2a", size=11),
-        hovertemplate="<b>%{y}</b><br>Bought: %{x}<extra></extra>",
+        name="Total Bought", orientation="h", marker_color="#fbbf24",
+        marker_line=dict(width=0),
+        customdata=hover_data,
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "Bought: %{customdata[0]:,.0f}<br>"
+            "Sold: %{customdata[1]:,.0f}<br>"
+            "Difference: %{customdata[2]:,.0f}"
+            "<extra></extra>"
+        ),
     ))
     fig2.add_trace(go.Bar(
         y=display_inv_chart["Product"], x=display_inv_chart["Units Sold"],
-        name="Units Sold", orientation="h", marker_color="#00b4d8",
-        text=sold_text, textposition="inside", insidetextanchor="start",
-        textfont=dict(color="#0d1b2a", size=11),
-        hovertemplate="<b>%{y}</b><br>Sold: %{x}<extra></extra>",
+        name="Units Sold", orientation="h", marker_color="#38bdf8",
+        marker_line=dict(width=0),
+        customdata=hover_data,
+        hovertemplate=(
+            "<b>%{y}</b><br>"
+            "Bought: %{customdata[0]:,.0f}<br>"
+            "Sold: %{customdata[1]:,.0f}<br>"
+            "Difference: %{customdata[2]:,.0f}"
+            "<extra></extra>"
+        ),
     ))
     fig2.update_layout(
-        **CHART_LAYOUT, barmode="group", height=600,
-        xaxis=dict(gridcolor="#1e3a52", title="Units"),
-        yaxis=dict(tickfont=dict(size=11), categoryorder="array", categoryarray=list(display_inv_chart["Product"])),
+        **CHART_LAYOUT, barmode="group", height=640,
+        xaxis=dict(showgrid=False, title="", zeroline=False, showline=False),
+        yaxis=dict(
+            tickfont=dict(size=11, color="#cbd5e1"),
+            categoryorder="array", categoryarray=y_order,
+            showgrid=False, zeroline=False, showline=False,
+        ),
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-    st.dataframe(
-        display_inv_chart.style
-            .format({c: "{:.0f}" for c in ["Total Bought", "Units Sold", "Difference"]})
-            .set_properties(**{"background-color": "#1a2f45", "color": "#e0f4ff"}),
-        use_container_width=True, hide_index=True,
-    )
-
     # ── Daily Dispatch Chart ──────────────────────────────────────────────────
-    section("📦 Daily Expected Revenue by Category (Settled Days Only)")
+    section("Daily Expected Revenue by Category (Settled Days Only)")
     sold_trend = compute_sold_trend(df_fridge_safe, PRODUCTS)
 
     if sold_trend.empty or sold_trend["Total Sold"].sum() == 0:
@@ -314,10 +449,10 @@ with tab_dash:
 
         fig5 = go.Figure()
         for label, rev_col, units_col, color in [
-            ("40ml",        "Rev 40ml",  "Units 40ml",  "#00b4d8"),
-            ("80ml",        "Rev 80ml",  "Units 80ml",  "#06d6a0"),
-            ("Family Pack", "Rev FP",    "Units FP",    "#ffd166"),
-            ("Total",       "Rev Total", "Units Total", "#f72585"),
+            ("40ml",        "Rev 40ml",  "Units 40ml",  "#38bdf8"),
+            ("80ml",        "Rev 80ml",  "Units 80ml",  "#34d399"),
+            ("Family Pack", "Rev FP",    "Units FP",    "#fbbf24"),
+            ("Total",       "Rev Total", "Units Total", "#a78bfa"),
         ]:
             fig5.add_trace(go.Bar(
                 x=sold_trend["Date"], y=sold_trend[rev_col],
@@ -328,33 +463,33 @@ with tab_dash:
 
         fig5.add_trace(go.Bar(
             x=sold_trend["Date"], y=sold_trend["Gross Profit"],
-            name="Gross Profit", marker_color="#a855f7",
+            name="Gross Profit", marker_color="#818cf8",
             hovertemplate="<b>Gross Profit</b><br>₹%{y:,.0f}<extra></extra>",
         ))
 
         fig5.update_layout(
-            **CHART_LAYOUT, barmode="group", height=320,
-            xaxis=dict(showgrid=False, dtick="D1", tickformat="%d %b"),
-            yaxis=dict(gridcolor="#1e3a52", title="₹"),
+            **CHART_LAYOUT, barmode="group", height=340,
+            xaxis=dict(showgrid=False, dtick="D1", tickformat="%d %b", showline=False),
+            yaxis=dict(showgrid=False, title="₹", zeroline=False, showline=False),
         )
         st.plotly_chart(fig5, use_container_width=True)
 
     # ── Full Inventory Grid ───────────────────────────────────────────────────
-    section("📋 Full Inventory Snapshot")
+    section("Full Inventory Snapshot")
     display_inv = sort_inventory_rows(
         inv[["Total Bought", "Stock Inside Fridge", "Sold", "Stock Left", "Needs Reorder", "Fridge Stock Low"]]
     ).reset_index()
 
     def _color_flags(val):
-        if val is True:  return "background-color:#ff4d6d33;color:#ff4d6d;font-weight:600"
-        if val is False: return "color:#06d6a0"
+        if val is True:  return "background-color:rgba(248,113,113,0.15);color:#f87171;font-weight:600"
+        if val is False: return "color:#34d399"
         return ""
 
     st.dataframe(
         display_inv.style
             .map(_color_flags, subset=["Needs Reorder", "Fridge Stock Low"])
             .format({c: "{:.0f}" for c in ["Total Bought", "Stock Inside Fridge", "Sold", "Stock Left"]})
-            .set_properties(**{"background-color": "#1a2f45", "color": "#e0f4ff"}),
+            .set_properties(**{"background-color": "#1a2234", "color": "#e2e8f0"}),
         use_container_width=True, hide_index=True, height=420,
     )
 
@@ -369,7 +504,7 @@ with tab_dash:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_entry:
 
-    section("✏️ Add a New Record")
+    section("Add a New Record")
 
     sheet_choice = st.selectbox(
         "Select Sheet",

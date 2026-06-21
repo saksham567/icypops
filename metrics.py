@@ -75,26 +75,11 @@ def compute_inventory(df_bought: pd.DataFrame, df_fridge: pd.DataFrame, products
     }).set_index("Product")
 
     thresholds = load_thresholds()
-    inv["Reorder Threshold"] = inv.index.map(lambda p: thresholds["reorder_threshold"].get(p, 0))
-    inv["Fridge Threshold"]  = inv.index.map(lambda p: thresholds["fridge_threshold"].get(p, 0))
+    inv["Reorder Threshold"] = inv.index.map(thresholds["reorder_threshold"]).fillna(0)
+    inv["Fridge Threshold"]  = inv.index.map(thresholds["fridge_threshold"]).fillna(0)
     inv["Needs Reorder"]     = inv["Stock Left"]          < inv["Reorder Threshold"]
     inv["Fridge Stock Low"] = inv["Stock Inside Fridge"] < inv["Fridge Threshold"]
     return inv
-
-
-def compute_daily_revenue_expense(df_revenue: pd.DataFrame, df_expense: pd.DataFrame) -> pd.DataFrame:
-    """Return daily and cumulative P&L."""
-    def _prep(df, col):
-        df = df.copy()
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        df[col]    = pd.to_numeric(df[col], errors="coerce").fillna(0)
-        return df.groupby("Date")[col].sum().reset_index()
-
-    pnl = pd.merge(_prep(df_revenue, "Revenue"), _prep(df_expense, "Expense"),
-                   on="Date", how="outer").fillna(0).sort_values("Date")
-    pnl["Net"]            = pnl["Revenue"] - pnl["Expense"]
-    pnl["Cumulative Net"] = pnl["Net"].cumsum()
-    return pnl
 
 
 def compute_sold_trend(df_fridge: pd.DataFrame, products: list) -> pd.DataFrame:
@@ -104,19 +89,8 @@ def compute_sold_trend(df_fridge: pd.DataFrame, products: list) -> pd.DataFrame:
     df = _coerce_products(df, products)
 
     settled = _settled_dates(df)
-    tv   = df[(df["Mode"] == "to vendor")   & df["Date"].isin(settled)].groupby("Date")[products].sum()
-    fv   = df[(df["Mode"] == "from vendor") & df["Date"].isin(settled)].groupby("Date")[products].sum()
+    tv = df[(df["Mode"] == "to vendor") & df["Date"].isin(settled)].groupby("Date")[products].sum()
+    fv = df[(df["Mode"] == "from vendor") & df["Date"].isin(settled)].groupby("Date")[products].sum()
     sold = tv.subtract(fv, fill_value=0).reset_index()
     sold["Total Sold"] = sold[products].sum(axis=1)
     return sold
-
-
-def compute_expense_breakdown(df_expense: pd.DataFrame) -> pd.DataFrame:
-    """Expense totals grouped by Type, descending."""
-    df = df_expense.copy()
-    df["Expense"] = pd.to_numeric(df["Expense"], errors="coerce").fillna(0)
-    return df.groupby("Type")["Expense"].sum().reset_index().sort_values("Expense", ascending=False)
-
-
-def compute_top_products(inv: pd.DataFrame, n: int = 5) -> pd.DataFrame:
-    return inv["Sold"].sort_values(ascending=False).head(n).reset_index()

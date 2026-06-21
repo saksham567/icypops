@@ -5,7 +5,6 @@ Authentication uses a Google Service Account key stored in
 Streamlit secrets (st.secrets["gcp_service_account"]).
 """
 
-import json
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -68,10 +67,9 @@ def load_sheet(sheet_name: str) -> pd.DataFrame:
             return df
         if "Date" in df.columns:
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        # Numeric coercion for product columns
         num_cols = [c for c in df.columns if c not in ("Date", "Mode", "Type", "Description")]
-        for c in num_cols:
-            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+        if num_cols:
+            df[num_cols] = df[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
         return df
     except Exception as e:
         st.warning(f"Could not load sheet '{sheet_name}': {e}")
