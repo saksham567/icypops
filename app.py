@@ -87,14 +87,16 @@ def _product_group(product: str) -> int:
 
 
 def sort_chart_products(df: pd.DataFrame) -> pd.DataFrame:
-    """80 ml (top) → 40 ml → Family Pack (bottom); within each group smallest (Bought − Sold) diff at top."""
+    """80 ml (top) → 40 ml → Family Pack (bottom); within each group lowest % unsold at top."""
     sort_df = df.copy()
     sort_df["_group"] = sort_df.index.map(_product_group)
-    sort_df["_diff"] = sort_df["Total Bought"] - sort_df["Sold"]
-    # Plotly h-bar: last row = top; group descending puts 80 ml on top; diff descending puts smallest diff on top
+    bought = sort_df["Total Bought"]
+    sort_df["_pct_left"] = (bought - sort_df["Sold"]) / bought.where(bought > 0)
+    sort_df["_pct_left"] = sort_df["_pct_left"].fillna(0)
+    # Plotly h-bar: last row = top; group descending puts 80 ml on top; pct descending puts lowest % on top
     return (
-        sort_df.sort_values(["_group", "_diff"], ascending=[False, False])
-        .drop(columns=["_group", "_diff"])
+        sort_df.sort_values(["_group", "_pct_left"], ascending=[False, False])
+        .drop(columns=["_group", "_pct_left"])
     )
 
 
