@@ -10,7 +10,8 @@ from datetime import date
 
 from gsheets import (
     load_sheet, append_row, ensure_headers,
-    PRODUCTS, FRIDGE_MODES, SHEET_NAMES
+    PRODUCTS, FRIDGE_MODES, SHEET_NAMES,
+    EXPENSE_PAYMENT_COLS, EXPENSE_PAYMENT_LABELS,
 )
 from metrics import compute_inventory, compute_sold_trend
 from styles import inject_app_styles, render_app_header
@@ -112,7 +113,16 @@ def sort_inventory_rows(df: pd.DataFrame) -> pd.DataFrame:
         )
     return sort_df.sort_values("_group").drop(columns="_group")
 
-MARGIN_40 = 7
+def expense_by_payment(df_expense: pd.DataFrame) -> dict[str, float]:
+    """Sum Expense for rows where each payment-method flag is set."""
+    totals = {col: 0.0 for col in EXPENSE_PAYMENT_COLS}
+    if df_expense.empty:
+        return totals
+    for col in EXPENSE_PAYMENT_COLS:
+        flag = pd.to_numeric(df_expense.get(col, 0), errors="coerce").fillna(0)
+        totals[col] = float(df_expense.loc[flag > 0, "Expense"].sum())
+    return totals
+
 MARGIN_80 = 10
 MARGIN_FP = 66
 
@@ -152,6 +162,7 @@ with tab_dash:
     # ── Derived KPI values ────────────────────────────────────────────────────
     total_revenue    = df_revenue["Revenue"].sum() if not df_revenue.empty else 0
     total_expense    = df_expense["Expense"].sum() if not df_expense.empty else 0
+    expense_split    = expense_by_payment(df_expense)
     net_pnl          = total_revenue - total_expense
     reorder_count    = int(inv["Needs Reorder"].sum())
     fridge_low       = int(inv["Fridge Stock Low"].sum())
@@ -189,6 +200,14 @@ with tab_dash:
     k7, k8 = st.columns(2)
     kpi(k7, "Total Expense", f"₹{total_expense:,.0f}", "Lifetime",         "neutral")
     kpi(k8, "Net P&L",       f"₹{net_pnl:,.0f}",      "Breakeven tracker", "good" if net_pnl >= 0 else "alert")
+
+    ep1, ep2, ep3 = st.columns(3)
+    kpi(ep1, EXPENSE_PAYMENT_LABELS["PaidThroughIncomeBank"],
+        f"₹{expense_split['PaidThroughIncomeBank']:,.0f}", "Lifetime", "neutral")
+    kpi(ep2, EXPENSE_PAYMENT_LABELS["PaidThroughIncomeCash"],
+        f"₹{expense_split['PaidThroughIncomeCash']:,.0f}", "Lifetime", "neutral")
+    kpi(ep3, EXPENSE_PAYMENT_LABELS["PaidThroughOwnMoney"],
+        f"₹{expense_split['PaidThroughOwnMoney']:,.0f}", "Lifetime", "neutral")
 
     k9, k10, k11, k12 = st.columns(4)
     kpi(k9,  "Gross Profit — 40ml", f"₹{gross_40:,.0f}",    f"@ ₹7/unit · {int(sold_40)} units",   "good" if gross_40    >= 0 else "alert")
@@ -386,6 +405,11 @@ with tab_entry:
             exp_type   = c1.text_input("Type", placeholder="e.g. Product, Repair, Essentials")
             exp_desc   = c2.text_input("Description", placeholder="Brief note")
             exp_amount = st.number_input("Expense Amount (₹)", min_value=0.0, step=1.0)
+            pay_method = st.selectbox(
+                "Payment Method",
+                EXPENSE_PAYMENT_COLS,
+                format_func=lambda c: EXPENSE_PAYMENT_LABELS[c],
+            )
 
             if st.form_submit_button("➕ Add Expense", type="primary"):
                 if not exp_type.strip():
@@ -393,7 +417,13 @@ with tab_entry:
                 elif exp_amount <= 0:
                     st.error("Expense must be greater than 0.")
                 else:
-                    append_row("Expense", [str(entry_date), exp_type.strip(), exp_desc.strip(), exp_amount])
+                    flags = {c: (1 if c == pay_method else 0) for c in EXPENSE_PAYMENT_COLS}
+                    append_row("Expense", [
+                        str(entry_date), exp_type.strip(), exp_desc.strip(), exp_amount,
+                        flags["PaidThroughIncomeBank"],
+                        flags["PaidThroughIncomeCash"],
+                        flags["PaidThroughOwnMoney"],
+                    ])
                     st.success(f"✅ Expense of ₹{exp_amount} added for {entry_date}.")
 
         # ── BOUGHT ───────────────────────────────────────────────────────────

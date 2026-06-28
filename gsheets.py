@@ -30,7 +30,15 @@ PRODUCTS = [
 
 FRIDGE_MODES = ["from stock", "to vendor", "from vendor"]
 
-EXPENSE_COLS  = ["Date", "Type", "Description", "Expense"]
+EXPENSE_PAYMENT_COLS = ["PaidThroughIncomeBank", "PaidThroughIncomeCash", "PaidThroughOwnMoney"]
+
+EXPENSE_PAYMENT_LABELS = {
+    "PaidThroughIncomeBank": "Expense Paid through Income from Account",
+    "PaidThroughIncomeCash": "Expense Paid through Income in Cash",
+    "PaidThroughOwnMoney":   "Expense Paid by Personal Money",
+}
+
+EXPENSE_COLS  = ["Date", "Type", "Description", "Expense"] + EXPENSE_PAYMENT_COLS
 BOUGHT_COLS   = ["Date"] + PRODUCTS
 FRIDGE_COLS   = ["Date", "Mode"] + PRODUCTS
 REVENUE_COLS  = ["Date", "Revenue"]
@@ -63,6 +71,10 @@ def load_sheet(sheet_name: str) -> pd.DataFrame:
         ws = get_spreadsheet().worksheet(sheet_name)
         data = ws.get_all_records(expected_headers=SHEET_COLS[sheet_name])
         df = pd.DataFrame(data, columns=SHEET_COLS[sheet_name])
+        for col in SHEET_COLS[sheet_name]:
+            if col not in df.columns:
+                df[col] = 0
+        df = df[SHEET_COLS[sheet_name]]
         if df.empty:
             return df
         if "Date" in df.columns:
