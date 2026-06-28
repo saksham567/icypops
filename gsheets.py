@@ -7,8 +7,10 @@ Streamlit secrets (st.secrets["gcp_service_account"]).
 
 import streamlit as st
 import gspread
+from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
 import pandas as pd
+from datetime import datetime
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -103,3 +105,40 @@ def ensure_headers():
         existing = ws.get_all_values()
         if not existing:
             ws.append_row(cols, value_input_option="USER_ENTERED")
+
+
+def create_spreadsheet_snapshot() -> dict:
+    """Copy the live spreadsheet into the same Drive folder with a timestamped name."""
+    spreadsheet_id = st.secrets["spreadsheet_id"]
+    ss = get_spreadsheet()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    snapshot_name = f"{ss.title} — Snapshot {timestamp}"
+
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES
+    )
+    session = AuthorizedSession(creds)
+
+    meta_resp = session.get(
+        f"https://www.googleapis.com/drive/v3/files/{spreadsheet_id}",
+        params={"fields": "parents"},
+    )
+    meta_resp.raise_for_status()
+    parents = meta_resp.json().get("parents", [])
+
+    copy_body: dict = {"name": snapshot_name}
+    if parents:
+        copy_body["parents"] = parents
+
+    copy_resp = session.post(
+        f"https://www.googleapis.com/drive/v3/files/{spreadsheet_id}/copy",
+        json=copy_body,
+    )
+    copy_resp.raise_for_status()
+    copy_id = copy_resp.json()["id"]
+
+    return {
+        "id": copy_id,
+        "name": snapshot_name,
+        "url": f"https://docs.google.com/spreadsheets/d/{copy_id}/edit",
+    }

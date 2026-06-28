@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from datetime import date
 
 from gsheets import (
-    load_sheet, append_row, ensure_headers,
+    load_sheet, append_row, ensure_headers, create_spreadsheet_snapshot,
     PRODUCTS, FRIDGE_MODES, SHEET_NAMES,
     EXPENSE_PAYMENT_COLS, EXPENSE_PAYMENT_LABELS,
 )
@@ -372,9 +372,20 @@ with tab_dash:
     )
 
     st.markdown("")
-    if st.button("🔄 Refresh Data", type="secondary"):
-        st.cache_data.clear()
-        st.rerun()
+    col_refresh, col_snapshot = st.columns(2)
+    with col_refresh:
+        if st.button("Refresh Data", type="secondary", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+    with col_snapshot:
+        if st.button("Save Google Sheets Snapshot", type="primary", use_container_width=True):
+            try:
+                with st.spinner("Creating snapshot in Google Drive…"):
+                    snapshot = create_spreadsheet_snapshot()
+                st.success(f"Snapshot saved as **{snapshot['name']}**")
+                st.markdown(f"[Open snapshot in Google Sheets]({snapshot['url']})")
+            except Exception as e:
+                st.error(f"Could not create snapshot. Check Drive permissions. Error: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
