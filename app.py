@@ -123,6 +123,7 @@ def expense_by_payment(df_expense: pd.DataFrame) -> dict[str, float]:
         totals[col] = float(df_expense.loc[flag > 0, "Expense"].sum())
     return totals
 
+MARGIN_40 = 7
 MARGIN_80 = 10
 MARGIN_FP = 66
 
