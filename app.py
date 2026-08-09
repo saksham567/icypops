@@ -320,6 +320,17 @@ with tab_dash:
     section("Daily Expected Revenue by Category (Settled Days Only)")
     sold_trend = compute_sold_trend(df_fridge_safe, PRODUCTS)
 
+    if not sold_trend.empty:
+        min_date     = sold_trend["Date"].min().date()
+        max_date     = sold_trend["Date"].max().date()
+        default_from = max(min_date, max_date - pd.Timedelta(days=14))
+        from_date    = st.date_input(
+            "From date", value=default_from,
+            min_value=min_date, max_value=max_date,
+            key="chart_from_date",
+        )
+        sold_trend = sold_trend[sold_trend["Date"].dt.date >= from_date]
+
     if sold_trend.empty or sold_trend["Total Sold"].sum() == 0:
         st.info("No settled dispatch data yet. A day is counted only when both 'to vendor' and 'from vendor' entries exist.")
     else:
