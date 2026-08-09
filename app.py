@@ -165,13 +165,11 @@ with tab_dash:
     total_revenue    = df_revenue["Revenue"].sum() if not df_revenue.empty else 0
     total_expense    = df_expense["Expense"].sum() if not df_expense.empty else 0
     expense_split    = expense_by_payment(df_expense)
-    operational_cost = float(
-        df_expense.loc[
-            pd.to_numeric(df_expense.get(EXPENSE_OPERATIONAL_COL, 0), errors="coerce").fillna(0) > 0,
-            "Expense"
-        ].sum()
-    ) if not df_expense.empty else 0.0
-    realized_profit  = total_revenue - operational_cost
+    operational_cost = 0.0
+    if not df_expense.empty and EXPENSE_OPERATIONAL_COL in df_expense.columns:
+        flag = pd.to_numeric(df_expense[EXPENSE_OPERATIONAL_COL], errors="coerce").fillna(0)
+        operational_cost = float(df_expense.loc[flag > 0, "Expense"].sum())
+    realized_profit = total_revenue - operational_cost
     net_pnl          = total_revenue - total_expense
     reorder_count    = int(inv["Needs Reorder"].sum())
     fridge_low       = int(inv["Fridge Stock Low"].sum())
@@ -437,6 +435,8 @@ with tab_entry:
                 format_func=lambda c: EXPENSE_PAYMENT_LABELS[c],
             )
 
+            is_operational = st.checkbox("Flag as Operational Cost")
+
             if st.form_submit_button("➕ Add Expense", type="primary"):
                 if not exp_type.strip():
                     st.error("Type is required.")
@@ -449,7 +449,9 @@ with tab_entry:
                         flags["PaidThroughIncomeBank"],
                         flags["PaidThroughIncomeCash"],
                         flags["PaidThroughOwnMoney"],
+                        1 if is_operational else 0,
                     ])
+
                     st.success(f"✅ Expense of ₹{exp_amount} added for {entry_date}.")
 
         # ── BOUGHT ───────────────────────────────────────────────────────────
