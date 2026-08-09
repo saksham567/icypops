@@ -40,7 +40,7 @@ EXPENSE_PAYMENT_LABELS = {
     "PaidThroughOwnMoney":   "Expense Paid by Personal Money",
 }
 
-EXPENSE_OPERATIONAL_COL = "OperationalCost"
+EXPENSE_OPERATIONAL_COL = ["OperationalCost"]
 
 EXPENSE_COLS  = ["Date", "Type", "Description", "Expense"] + EXPENSE_PAYMENT_COLS + EXPENSE_OPERATIONAL_COL
 BOUGHT_COLS   = ["Date"] + PRODUCTS
