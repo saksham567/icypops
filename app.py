@@ -11,8 +11,9 @@ from datetime import date
 from gsheets import (
     load_sheet, append_row, ensure_headers, create_spreadsheet_snapshot,
     PRODUCTS, FRIDGE_MODES, SHEET_NAMES,
-    EXPENSE_PAYMENT_COLS, EXPENSE_PAYMENT_LABELS,
+    EXPENSE_PAYMENT_COLS, EXPENSE_PAYMENT_LABELS, EXPENSE_OPERATIONAL_COL,
 )
+
 from metrics import compute_inventory, compute_sold_trend
 from styles import inject_app_styles, render_app_header
 
@@ -164,6 +165,13 @@ with tab_dash:
     total_revenue    = df_revenue["Revenue"].sum() if not df_revenue.empty else 0
     total_expense    = df_expense["Expense"].sum() if not df_expense.empty else 0
     expense_split    = expense_by_payment(df_expense)
+    operational_cost = float(
+        df_expense.loc[
+            pd.to_numeric(df_expense.get(EXPENSE_OPERATIONAL_COL, 0), errors="coerce").fillna(0) > 0,
+            "Expense"
+        ].sum()
+    ) if not df_expense.empty else 0.0
+    realized_profit  = total_revenue - operational_cost
     net_pnl          = total_revenue - total_expense
     reorder_count    = int(inv["Needs Reorder"].sum())
     fridge_low       = int(inv["Fridge Stock Low"].sum())
@@ -179,10 +187,10 @@ with tab_dash:
     expected_revenue = expected_rev_40 + expected_rev_80 + expected_rev_fp
     revenue_gap      = total_revenue - expected_revenue
 
-    gross_40         = sold_40 * MARGIN_40
-    gross_80         = sold_80 * MARGIN_80
-    gross_fp         = sold_fp * MARGIN_FP
-    gross_total      = gross_40 + gross_80 + gross_fp
+    # gross_40         = sold_40 * MARGIN_40
+    # gross_80         = sold_80 * MARGIN_80
+    # gross_fp         = sold_fp * MARGIN_FP
+    # gross_total      = gross_40 + gross_80 + gross_fp
 
     # ── Revenue KPIs ─────────────────────────────────────────────────────────
     section("Revenue")
@@ -210,11 +218,17 @@ with tab_dash:
     kpi(ep3, EXPENSE_PAYMENT_LABELS["PaidThroughOwnMoney"],
         f"₹{expense_split['PaidThroughOwnMoney']:,.0f}", "Lifetime", "neutral")
 
-    k9, k10, k11, k12 = st.columns(4)
-    kpi(k9,  "Gross Profit — 40ml", f"₹{gross_40:,.0f}",    f"@ ₹7/unit · {int(sold_40)} units",   "good" if gross_40    >= 0 else "alert")
-    kpi(k10, "Gross Profit — 80ml", f"₹{gross_80:,.0f}",    f"@ ₹10/unit · {int(sold_80)} units",  "good" if gross_80    >= 0 else "alert")
-    kpi(k11, "Gross Profit — FP",   f"₹{gross_fp:,.0f}",    f"@ ₹66/unit · {int(sold_fp)} units", "good" if gross_fp    >= 0 else "alert")
-    kpi(k12, "Gross Profit — Total",f"₹{gross_total:,.0f}", f"Lifetime across all products",        "good" if gross_total >= 0 else "alert")
+    op1, op2 = st.columns(2)
+    kpi(op1, "Operation Cost",        f"₹{operational_cost:,.0f}",
+        "Expenses flagged as Operational", "neutral")
+    kpi(op2, "Total Realized Profit", f"₹{realized_profit:,.0f}",
+        "Actual Revenue − Operation Cost", "good" if realized_profit >= 0 else "alert")
+
+    # k9, k10, k11, k12 = st.columns(4)
+    # kpi(k9,  "Gross Profit — 40ml", f"₹{gross_40:,.0f}",    f"@ ₹7/unit · {int(sold_40)} units",   "good" if gross_40    >= 0 else "alert")
+    # kpi(k10, "Gross Profit — 80ml", f"₹{gross_80:,.0f}",    f"@ ₹10/unit · {int(sold_80)} units",  "good" if gross_80    >= 0 else "alert")
+    # kpi(k11, "Gross Profit — FP",   f"₹{gross_fp:,.0f}",    f"@ ₹66/unit · {int(sold_fp)} units", "good" if gross_fp    >= 0 else "alert")
+    # kpi(k12, "Gross Profit — Total",f"₹{gross_total:,.0f}", f"Lifetime across all products",        "good" if gross_total >= 0 else "alert")
 
     # ── Alerts ───────────────────────────────────────────────────────────────
     section("Alerts")
