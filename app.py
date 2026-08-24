@@ -321,25 +321,25 @@ with tab_dash:
     sold_trend = compute_sold_trend(df_fridge_safe, PRODUCTS)
 
     if not sold_trend.empty:
-    min_date     = sold_trend["Date"].min().date()
-    max_date     = sold_trend["Date"].max().date()
-    default_from = max(min_date, max_date - pd.Timedelta(days=14))
+        min_date     = sold_trend["Date"].min().date()
+        max_date     = sold_trend["Date"].max().date()
+        default_from = max(min_date, max_date - pd.Timedelta(days=14))
 
-    col_from, col_to = st.columns(2)
-    from_date = col_from.date_input(
-        "From date", value=default_from,
-        min_value=min_date, max_value=max_date,
-        key="chart_from_date",
-    )
-    to_date = col_to.date_input(
-        "To date", value=max_date,
-        min_value=min_date, max_value=max_date,
-        key="chart_to_date",
-    )
-    sold_trend = sold_trend[
-        (sold_trend["Date"].dt.date >= from_date) &
-        (sold_trend["Date"].dt.date <= to_date)
-    ]
+        col_from, col_to = st.columns(2)
+        from_date = col_from.date_input(
+            "From date", value=default_from,
+            min_value=min_date, max_value=max_date,
+            key="chart_from_date",
+        )
+        to_date = col_to.date_input(
+            "To date", value=max_date,
+            min_value=min_date, max_value=max_date,
+            key="chart_to_date",
+        )
+        sold_trend = sold_trend[
+            (sold_trend["Date"].dt.date >= from_date) &
+            (sold_trend["Date"].dt.date <= to_date)
+        ]
 
     if sold_trend.empty or sold_trend["Total Sold"].sum() == 0:
         st.info("No settled dispatch data yet. A day is counted only when both 'to vendor' and 'from vendor' entries exist.")
