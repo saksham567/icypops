@@ -320,43 +320,83 @@ with tab_dash:
     section("Daily Expected Revenue by Category (Settled Days Only)")
     sold_trend = compute_sold_trend(df_fridge_safe, PRODUCTS)
 
-    if not sold_trend.empty:
-        min_date     = sold_trend["Date"].min().date()
-        max_date     = sold_trend["Date"].max().date()
-        default_from = max(min_date, max_date - pd.Timedelta(days=14))
-
-        col_from, col_to = st.columns(2)
-        from_date = col_from.date_input(
-            "From date", value=default_from,
-            min_value=min_date, max_value=max_date,
-            key="chart_from_date",
-        )
-        to_date = col_to.date_input(
-            "To date", value=max_date,
-            min_value=min_date, max_value=max_date,
-            key="chart_to_date",
-        )
-        sold_trend = sold_trend[
-            (sold_trend["Date"].dt.date >= from_date) &
-            (sold_trend["Date"].dt.date <= to_date)
-        ]
-
     if sold_trend.empty or sold_trend["Total Sold"].sum() == 0:
         st.info("No settled dispatch data yet. A day is counted only when both 'to vendor' and 'from vendor' entries exist.")
     else:
-        sold_trend["Rev 40ml"]     = sold_trend[PRODS_40].sum(axis=1) * 15
-        sold_trend["Rev 80ml"]     = sold_trend[PRODS_80].sum(axis=1) * 25
-        sold_trend["Rev FP"]       = sold_trend.get("FAMILY PACK", 0) * 220
-        sold_trend["Units 40ml"]   = sold_trend[PRODS_40].sum(axis=1)
-        sold_trend["Units 80ml"]   = sold_trend[PRODS_80].sum(axis=1)
-        sold_trend["Units FP"]     = sold_trend.get("FAMILY PACK", 0)
-        sold_trend["Rev Total"]    = sold_trend["Rev 40ml"] + sold_trend["Rev 80ml"] + sold_trend["Rev FP"]
-        sold_trend["Units Total"]  = sold_trend["Units 40ml"] + sold_trend["Units 80ml"] + sold_trend["Units FP"]
-        sold_trend["Gross Profit"] = (
-            sold_trend["Units 40ml"] * MARGIN_40 +
-            sold_trend["Units 80ml"] * MARGIN_80 +
-            sold_trend.get("FAMILY PACK", 0) * MARGIN_FP
+        # ── Toggle ────────────────────────────────────────────────────────
+        view_mode = st.radio(
+            "View", ["Daily", "Monthly"],
+            horizontal=True, key="dispatch_view",
+            label_visibility="collapsed",
         )
+
+        if view_mode == "Daily":
+            min_date     = sold_trend["Date"].min().date()
+            max_date     = sold_trend["Date"].max().date()
+            default_from = max(min_date, max_date - pd.Timedelta(days=14))
+
+            col_from, col_to = st.columns(2)
+            from_date = col_from.date_input(
+                "From date", value=default_from,
+                min_value=min_date, max_value=max_date,
+                key="chart_from_date",
+            )
+            to_date = col_to.date_input(
+                "To date", value=max_date,
+                min_value=min_date, max_value=max_date,
+                key="chart_to_date",
+            )
+            plot_df = sold_trend[
+                (sold_trend["Date"].dt.date >= from_date) &
+                (sold_trend["Date"].dt.date <= to_date)
+            ].copy()
+            x_col      = "Date"
+            x_settings = dict(showgrid=False, dtick="D1", tickformat="%d %b", showline=False)
+
+        else:  # Monthly
+            monthly = sold_trend.copy()
+            monthly["Month"] = monthly["Date"].dt.to_period("M")
+            agg_cols = PRODS_40 + PRODS_80 + ["FAMILY PACK",
+                        "Rev 40ml", "Rev 80ml", "Rev FP",
+                        "Units 40ml", "Units 80ml", "Units FP",
+                        "Rev Total", "Units Total", "Gross Profit"]
+
+            # Compute derived columns before aggregating
+            monthly["Rev 40ml"]     = monthly[PRODS_40].sum(axis=1) * 15
+            monthly["Rev 80ml"]     = monthly[PRODS_80].sum(axis=1) * 25
+            monthly["Rev FP"]       = monthly.get("FAMILY PACK", 0) * 220
+            monthly["Units 40ml"]   = monthly[PRODS_40].sum(axis=1)
+            monthly["Units 80ml"]   = monthly[PRODS_80].sum(axis=1)
+            monthly["Units FP"]     = monthly.get("FAMILY PACK", 0)
+            monthly["Rev Total"]    = monthly["Rev 40ml"] + monthly["Rev 80ml"] + monthly["Rev FP"]
+            monthly["Units Total"]  = monthly["Units 40ml"] + monthly["Units 80ml"] + monthly["Units FP"]
+            monthly["Gross Profit"] = (
+                monthly["Units 40ml"] * MARGIN_40 +
+                monthly["Units 80ml"] * MARGIN_80 +
+                monthly.get("FAMILY PACK", 0) * MARGIN_FP
+            )
+
+            num_cols = [c for c in agg_cols if c in monthly.columns]
+            plot_df  = monthly.groupby("Month")[num_cols].sum().reset_index()
+            plot_df["Month"] = plot_df["Month"].dt.strftime("%b %Y")
+            x_col      = "Month"
+            x_settings = dict(showgrid=False, showline=False)
+
+        # Ensure derived cols exist for daily path (already computed for monthly)
+        if view_mode == "Daily":
+            plot_df["Rev 40ml"]     = plot_df[PRODS_40].sum(axis=1) * 15
+            plot_df["Rev 80ml"]     = plot_df[PRODS_80].sum(axis=1) * 25
+            plot_df["Rev FP"]       = plot_df.get("FAMILY PACK", 0) * 220
+            plot_df["Units 40ml"]   = plot_df[PRODS_40].sum(axis=1)
+            plot_df["Units 80ml"]   = plot_df[PRODS_80].sum(axis=1)
+            plot_df["Units FP"]     = plot_df.get("FAMILY PACK", 0)
+            plot_df["Rev Total"]    = plot_df["Rev 40ml"] + plot_df["Rev 80ml"] + plot_df["Rev FP"]
+            plot_df["Units Total"]  = plot_df["Units 40ml"] + plot_df["Units 80ml"] + plot_df["Units FP"]
+            plot_df["Gross Profit"] = (
+                plot_df["Units 40ml"] * MARGIN_40 +
+                plot_df["Units 80ml"] * MARGIN_80 +
+                plot_df.get("FAMILY PACK", 0) * MARGIN_FP
+            )
 
         fig5 = go.Figure()
         for label, rev_col, units_col, color in [
@@ -366,21 +406,21 @@ with tab_dash:
             ("Total",       "Rev Total", "Units Total", "#a78bfa"),
         ]:
             fig5.add_trace(go.Bar(
-                x=sold_trend["Date"], y=sold_trend[rev_col],
+                x=plot_df[x_col], y=plot_df[rev_col],
                 name=label, marker_color=color,
-                customdata=sold_trend[units_col],
+                customdata=plot_df[units_col],
                 hovertemplate=f"<b>{label}</b><br>Revenue: ₹%{{y:,.0f}}<br>Units: %{{customdata}}<extra></extra>",
             ))
 
         fig5.add_trace(go.Bar(
-            x=sold_trend["Date"], y=sold_trend["Gross Profit"],
+            x=plot_df[x_col], y=plot_df["Gross Profit"],
             name="Gross Profit", marker_color="#818cf8",
             hovertemplate="<b>Gross Profit</b><br>₹%{y:,.0f}<extra></extra>",
         ))
 
         fig5.update_layout(
             **CHART_LAYOUT, barmode="group", height=340,
-            xaxis=dict(showgrid=False, dtick="D1", tickformat="%d %b", showline=False),
+            xaxis=x_settings,
             yaxis=dict(showgrid=False, title="₹", zeroline=False, showline=False),
         )
         st.plotly_chart(fig5, use_container_width=True)
