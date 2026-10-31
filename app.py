@@ -147,6 +147,59 @@ def monthly_expense_pivot(df_expense: pd.DataFrame):
     return pivot
 
 
+def build_expense_grid(pivot: pd.DataFrame):
+    """Flatten Category > Type pivot into one grid: Category | Type | months... | Total."""
+    num_cols = list(pivot.columns)                       # months..., "Total"
+    cats_present = set(pivot.index.get_level_values("Category"))
+    rows, kinds = [], []
+    for cat in ["Operational", "Non-Operational"]:
+        if cat not in cats_present:
+            continue
+        detail = pivot.loc[cat].sort_values("Total", ascending=False)
+        for typ, r in detail.iterrows():
+            rows.append([cat, typ] + r[num_cols].tolist())
+            kinds.append(cat)
+        rows.append([cat, "Subtotal"] + detail[num_cols].sum().tolist())
+        kinds.append("subtotal:" + cat)
+    rows.append(["Total", ""] + pivot[num_cols].sum().tolist())
+    kinds.append("grand")
+    return pd.DataFrame(rows, columns=["Category", "Type"] + num_cols), kinds, num_cols
+
+
+_CAT_RGB = {"Operational": "56,189,248", "Non-Operational": "251,191,36"}   # teal / amber
+_GRAND_RGB = "129,140,248"                                                  # indigo
+
+
+def style_expense_grid(grid: pd.DataFrame, kinds: list, num_cols: list) -> pd.DataFrame:
+    """Cell styles: category tint, heat-shaded amounts, bold subtotal/total rows."""
+    css = pd.DataFrame("", index=grid.index, columns=grid.columns)
+    month_cols = num_cols[:-1]
+    detail_idx = [i for i, k in enumerate(kinds) if k in _CAT_RGB]
+    vmax = float(grid.iloc[detail_idx][month_cols].to_numpy().max()) if detail_idx and month_cols else 0.0
+
+    for i, kind in enumerate(kinds):
+        if kind in _CAT_RGB:                                   # Type rows
+            rgb = _CAT_RGB[kind]
+            css.iloc[i, 0] = f"background-color: rgba({rgb},0.18); font-weight: 600"
+            for c in month_cols:
+                v = float(grid.iloc[i][c])
+                if v > 0 and vmax > 0:
+                    css.at[i, c] = f"background-color: rgba({rgb},{0.08 + 0.42 * v / vmax:.2f})"
+                else:
+                    css.at[i, c] = "color: #64748b"
+            css.at[i, "Total"] = "font-weight: 700"
+        elif kind.startswith("subtotal:"):                      # Subtotal rows
+            rgb = _CAT_RGB[kind.split(":", 1)[1]]
+            css.iloc[i, :] = f"background-color: rgba({rgb},0.25); font-weight: 700"
+        else:                                                   # Grand total
+            css.iloc[i, :] = f"background-color: rgba({_GRAND_RGB},0.32); font-weight: 700"
+    return css
+
+
+def _fmt_amt(v) -> str:
+    return "–" if float(v) == 0 else f"{float(v):,.0f}"
+
+
 def daily_actual_vs_expected(df_revenue: pd.DataFrame, df_fridge_safe: pd.DataFrame) -> pd.DataFrame:
     """Per-day Actual (Revenue sheet), Expected (settled sold units × price), and comments."""
     rev = df_revenue.copy()
@@ -298,18 +351,16 @@ with tab_dash:
     if pivot is None:
         st.info("No expense data yet.")
     else:
-        cat_totals = pivot.groupby(level="Category").sum()
-        cat_totals = cat_totals.reindex(
-            [c for c in ["Operational", "Non-Operational"] if c in cat_totals.index]
+        grid, kinds, num_cols = build_expense_grid(pivot)
+        styled_grid = (
+            grid.style
+            .apply(lambda df: style_expense_grid(df, kinds, num_cols), axis=None)
+            .format(_fmt_amt, subset=num_cols)
         )
-        cat_totals.loc["Total"] = cat_totals.sum()
-        st.dataframe(cat_totals.style.format("{:,.0f}"), use_container_width=True)
-
-        for cat in cat_totals.index[:-1]:
-            detail = pivot.loc[cat].sort_values("Total", ascending=False)
-            detail.loc["Total"] = detail.sum()
-            with st.expander(f"{cat} — breakdown by Type", expanded=False):
-                st.dataframe(detail.style.format("{:,.0f}"), use_container_width=True)
+        st.dataframe(styled_grid, use_container_width=True, hide_index=True,
+                     height=min(80 + 36 * len(grid), 720))
+        st.caption("Shading intensity reflects the amount within each category. "
+                   "Teal = Operational, Amber = Non-Operational.")
 
     # ── Actual vs Expected Revenue ───────────────────────────────────────────
     section("Actual vs Expected Revenue")
@@ -555,9 +606,14 @@ with tab_dash:
 
     # ── Full Inventory Grid ───────────────────────────────────────────────────
     section("Full Inventory Snapshot")
-    display_inv = sort_inventory_rows(
-        inv[["Total Bought", "Stock Inside Fridge", "Sold", "Stock Left", "Needs Reorder", "Fridge Stock Low"]]
-    ).reset_index()
+    # Sort first (uses Stock Inside Fridge), then hide that column from the grid
+    display_inv = (
+        sort_inventory_rows(
+            inv[["Total Bought", "Stock Inside Fridge", "Sold", "Stock Left", "Needs Reorder", "Fridge Stock Low"]]
+        )
+        .drop(columns=["Stock Inside Fridge"])
+        .reset_index()
+    )
 
     def _color_flags(val):
         if val is True:  return "background-color:rgba(248,113,113,0.15);color:#f87171;font-weight:600"
@@ -567,7 +623,7 @@ with tab_dash:
     st.dataframe(
         display_inv.style
             .map(_color_flags, subset=["Needs Reorder", "Fridge Stock Low"])
-            .format({c: "{:.0f}" for c in ["Total Bought", "Stock Inside Fridge", "Sold", "Stock Left"]})
+            .format({c: "{:.0f}" for c in ["Total Bought", "Sold", "Stock Left"]})
             .set_properties(**{"background-color": "#1a2234", "color": "#e2e8f0"}),
         use_container_width=True, hide_index=True, height=420,
     )
