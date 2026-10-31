@@ -17,7 +17,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-SHEET_NAMES = ["Expense", "Bought", "Fridge", "Revenue"]
+SHEET_NAMES = ["Expense", "Bought", "Fridge", "Revenue", "Dividend"]
 
 PRODUCTS = [
     "Kala Khatta - 40 ml", "Kachhi Keri - 40 ml", "Mango Bango - 40 ml",
@@ -46,13 +46,22 @@ EXPENSE_COLS  = ["Date", "Type", "Description", "Expense"] + EXPENSE_PAYMENT_COL
 BOUGHT_COLS   = ["Date"] + PRODUCTS
 FRIDGE_COLS   = ["Date", "Mode"] + PRODUCTS
 REVENUE_COLS  = ["Date", "Revenue"]
+REVENUE_COMMENT_COL = "Comments"          # optional column in the Revenue sheet
+
+# Dividend sheet headers exactly as in your sheet (note: DIVIDENT spelling)
+DIVIDEND_COLS = ["DATE", "TOTAL_DIVIDEND", "SAKSHAM_DIVIDEND", "DHAIRYA_DIVIDENT"]
+DIV_TOTAL, DIV_SAKSHAM, DIV_DHAIRYA = DIVIDEND_COLS[1:]
 
 SHEET_COLS = {
-    "Expense": EXPENSE_COLS,
-    "Bought":  BOUGHT_COLS,
-    "Fridge":  FRIDGE_COLS,
-    "Revenue": REVENUE_COLS,
+    "Expense":  EXPENSE_COLS,
+    "Bought":   BOUGHT_COLS,
+    "Fridge":   FRIDGE_COLS,
+    "Revenue":  REVENUE_COLS,
+    "Dividend": DIVIDEND_COLS,
 }
+
+SHEET_OPTIONAL_COLS = {"Revenue": [REVENUE_COMMENT_COL]}
+TEXT_COLS = {"Date", "DATE", "Mode", "Type", "Description", REVENUE_COMMENT_COL}
 
 
 @st.cache_resource(ttl=60)
@@ -71,25 +80,27 @@ def get_spreadsheet():
 @st.cache_data(ttl=30)
 def load_sheet(sheet_name: str) -> pd.DataFrame:
     """Load a sheet as a DataFrame. Returns empty DF with correct columns on error."""
+    required = SHEET_COLS[sheet_name]
+    all_cols = required + SHEET_OPTIONAL_COLS.get(sheet_name, [])
     try:
         ws = get_spreadsheet().worksheet(sheet_name)
-        data = ws.get_all_records(expected_headers=SHEET_COLS[sheet_name])
-        df = pd.DataFrame(data, columns=SHEET_COLS[sheet_name])
-        for col in SHEET_COLS[sheet_name]:
+        data = ws.get_all_records(expected_headers=required)
+        df = pd.DataFrame(data)
+        for col in all_cols:
             if col not in df.columns:
-                df[col] = 0
-        df = df[SHEET_COLS[sheet_name]]
+                df[col] = "" if col in TEXT_COLS else 0
+        df = df[all_cols]
         if df.empty:
             return df
-        if "Date" in df.columns:
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        num_cols = [c for c in df.columns if c not in ("Date", "Mode", "Type", "Description")]
+        date_col = "DATE" if "DATE" in df.columns else "Date"
+        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+        num_cols = [c for c in df.columns if c not in TEXT_COLS]
         if num_cols:
             df[num_cols] = df[num_cols].apply(pd.to_numeric, errors="coerce").fillna(0)
         return df
     except Exception as e:
         st.warning(f"Could not load sheet '{sheet_name}': {e}")
-        return pd.DataFrame(columns=SHEET_COLS[sheet_name])
+        return pd.DataFrame(columns=all_cols)
 
 
 def append_row(sheet_name: str, row: list):

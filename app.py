@@ -2,7 +2,6 @@
 IcyPops — Inventory & Business Dashboard
 Streamlit app connecting to Google Sheets via Service Account.
 """
-
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -12,6 +11,7 @@ from gsheets import (
     load_sheet, append_row, ensure_headers, create_spreadsheet_snapshot,
     PRODUCTS, FRIDGE_MODES, SHEET_NAMES,
     EXPENSE_PAYMENT_COLS, EXPENSE_PAYMENT_LABELS, EXPENSE_OPERATIONAL_COL,
+    REVENUE_COMMENT_COL, DIV_TOTAL, DIV_SAKSHAM, DIV_DHAIRYA,
 )
 
 from metrics import compute_inventory, compute_sold_trend
@@ -124,6 +124,56 @@ def expense_by_payment(df_expense: pd.DataFrame) -> dict[str, float]:
         totals[col] = float(df_expense.loc[flag > 0, "Expense"].sum())
     return totals
 
+PRICE_40, PRICE_80, PRICE_FP = 15, 25, 220
+
+
+def monthly_expense_pivot(df_expense: pd.DataFrame):
+    """Rows: Category > Type. Columns: months + Total."""
+    if df_expense.empty:
+        return None
+    df = df_expense.copy()
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df.dropna(subset=["Date"])
+    if df.empty:
+        return None
+    is_op = pd.to_numeric(df[EXPENSE_OPERATIONAL_COL], errors="coerce").fillna(0) > 0
+    df["Category"] = is_op.map({True: "Operational", False: "Non-Operational"})
+    df["Type"] = df["Type"].astype(str).str.strip().replace("", "Uncategorised")
+    df["MonthKey"] = df["Date"].dt.strftime("%Y-%m")
+    pivot = df.pivot_table(index=["Category", "Type"], columns="MonthKey",
+                           values="Expense", aggfunc="sum", fill_value=0)
+    pivot.columns = [pd.to_datetime(m + "-01").strftime("%b %Y") for m in pivot.columns]
+    pivot["Total"] = pivot.sum(axis=1)
+    return pivot
+
+
+def daily_actual_vs_expected(df_revenue: pd.DataFrame, df_fridge_safe: pd.DataFrame) -> pd.DataFrame:
+    """Per-day Actual (Revenue sheet), Expected (settled sold units × price), and comments."""
+    rev = df_revenue.copy()
+    rev["Date"] = pd.to_datetime(rev["Date"], errors="coerce")
+    rev = rev.dropna(subset=["Date"])
+    actual = rev.groupby("Date")["Revenue"].sum().rename("Actual")
+    comments = rev.groupby("Date")[REVENUE_COMMENT_COL].apply(
+        lambda s: " | ".join(str(x).strip() for x in s if str(x).strip())
+    ).rename("Comment")
+
+    st_df = compute_sold_trend(df_fridge_safe, PRODUCTS)
+    if st_df.empty:
+        expected = pd.Series(dtype=float, name="Expected")
+    else:
+        fp = st_df["FAMILY PACK"] if "FAMILY PACK" in st_df.columns else 0
+        expected = pd.Series(
+            (st_df[PRODS_40].sum(axis=1) * PRICE_40
+             + st_df[PRODS_80].sum(axis=1) * PRICE_80
+             + fp * PRICE_FP).values,
+            index=pd.to_datetime(st_df["Date"]), name="Expected",
+        )
+
+    out = pd.concat([actual, expected, comments], axis=1).reset_index()
+    out = out.rename(columns={"index": "Date"})
+    out["Comment"] = out["Comment"].fillna("")
+    return out.sort_values("Date")
+
 MARGIN_40 = 7
 MARGIN_80 = 10
 MARGIN_FP = 66
@@ -170,6 +220,11 @@ with tab_dash:
         flag = pd.to_numeric(df_expense[EXPENSE_OPERATIONAL_COL], errors="coerce").fillna(0)
         operational_cost = float(df_expense.loc[flag > 0, "Expense"].sum())
     realized_profit = total_revenue - operational_cost
+    df_dividend           = data["Dividend"]
+    total_dividend        = df_dividend[DIV_TOTAL].sum()   if not df_dividend.empty else 0
+    saksham_dividend      = df_dividend[DIV_SAKSHAM].sum() if not df_dividend.empty else 0
+    dhairya_dividend      = df_dividend[DIV_DHAIRYA].sum() if not df_dividend.empty else 0
+    profit_after_dividend = realized_profit - total_dividend
     net_pnl          = total_revenue - total_expense
     reorder_count    = int(inv["Needs Reorder"].sum())
     fridge_low       = int(inv["Fridge Stock Low"].sum())
@@ -227,6 +282,79 @@ with tab_dash:
     # kpi(k10, "Gross Profit — 80ml", f"₹{gross_80:,.0f}",    f"@ ₹10/unit · {int(sold_80)} units",  "good" if gross_80    >= 0 else "alert")
     # kpi(k11, "Gross Profit — FP",   f"₹{gross_fp:,.0f}",    f"@ ₹66/unit · {int(sold_fp)} units", "good" if gross_fp    >= 0 else "alert")
     # kpi(k12, "Gross Profit — Total",f"₹{gross_total:,.0f}", f"Lifetime across all products",        "good" if gross_total >= 0 else "alert")
+
+        # ── Dividend ─────────────────────────────────────────────────────────────
+    section("Dividend")
+    d1, d2, d3, d4 = st.columns(4)
+    kpi(d1, "Total Dividend",   f"₹{total_dividend:,.0f}",   "Lifetime", "neutral")
+    kpi(d2, "Dhairya Dividend", f"₹{dhairya_dividend:,.0f}", "Lifetime", "neutral")
+    kpi(d3, "Saksham Dividend", f"₹{saksham_dividend:,.0f}", "Lifetime", "neutral")
+    kpi(d4, "Realized Profit After Dividend", f"₹{profit_after_dividend:,.0f}",
+        "Realized Profit − Total Dividend", "good" if profit_after_dividend >= 0 else "alert")
+
+    # ── Monthly Expense Breakdown ────────────────────────────────────────────
+    section("Monthly Expense Breakdown")
+    pivot = monthly_expense_pivot(df_expense)
+    if pivot is None:
+        st.info("No expense data yet.")
+    else:
+        cat_totals = pivot.groupby(level="Category").sum()
+        cat_totals = cat_totals.reindex(
+            [c for c in ["Operational", "Non-Operational"] if c in cat_totals.index]
+        )
+        cat_totals.loc["Total"] = cat_totals.sum()
+        st.dataframe(cat_totals.style.format("{:,.0f}"), use_container_width=True)
+
+        for cat in cat_totals.index[:-1]:
+            detail = pivot.loc[cat].sort_values("Total", ascending=False)
+            detail.loc["Total"] = detail.sum()
+            with st.expander(f"{cat} — breakdown by Type", expanded=False):
+                st.dataframe(detail.style.format("{:,.0f}"), use_container_width=True)
+
+    # ── Actual vs Expected Revenue ───────────────────────────────────────────
+    section("Actual vs Expected Revenue")
+    avx = daily_actual_vs_expected(df_revenue, df_fridge_safe)
+    if avx.empty:
+        st.info("No revenue data yet.")
+    else:
+        n_days = st.number_input("Show last N days", min_value=1, max_value=3650,
+                                 value=20, step=1, key="avx_days")
+        end   = avx["Date"].max()
+        view  = avx[avx["Date"] >= end - pd.Timedelta(days=int(n_days) - 1)].copy()
+        view["Note"] = view["Comment"].apply(lambda c: f"💬 {c}" if c else "")
+        short = view[view["Actual"].notna() & view["Expected"].notna()
+                     & (view["Actual"] < view["Expected"])].copy()
+        short["Shortfall"] = short["Expected"] - short["Actual"]
+
+        fig_avx = go.Figure()
+        fig_avx.add_trace(go.Scatter(
+            x=view["Date"], y=view["Expected"], mode="lines+markers", name="Expected",
+            line=dict(color="#38bdf8", width=2), connectgaps=True,
+            hovertemplate="<b>Expected</b><br>%{x|%d %b}<br>₹%{y:,.0f}<extra></extra>",
+        ))
+        fig_avx.add_trace(go.Scatter(
+            x=view["Date"], y=view["Actual"], mode="lines+markers", name="Actual",
+            line=dict(color="#34d399", width=2), connectgaps=True,
+            customdata=view["Note"],
+            hovertemplate="<b>Actual</b><br>%{x|%d %b}<br>₹%{y:,.0f}<br>%{customdata}<extra></extra>",
+        ))
+        fig_avx.add_trace(go.Scatter(
+            x=short["Date"], y=short["Actual"], mode="markers", name="Actual < Expected",
+            marker=dict(color="#f87171", size=13, line=dict(color="#ffffff", width=1.5)),
+            customdata=short[["Expected", "Shortfall", "Note"]].values,
+            hovertemplate=("<b>Below expected</b><br>%{x|%d %b}<br>Actual: ₹%{y:,.0f}"
+                           "<br>Expected: ₹%{customdata[0]:,.0f}"
+                           "<br>Shortfall: ₹%{customdata[1]:,.0f}"
+                           "<br>%{customdata[2]}<extra></extra>"),
+        ))
+        fig_avx.update_layout(
+            **CHART_LAYOUT, height=360,
+            xaxis=dict(showgrid=False, showline=False, tickformat="%d %b",
+                       **({"dtick": "D1"} if n_days <= 31 else {})),
+            yaxis=dict(showgrid=False, title="₹", zeroline=False, showline=False),
+        )
+        st.plotly_chart(fig_avx, use_container_width=True)
+        st.caption(f"{len(short)} day(s) below expected in this window.")
 
     # ── Alerts ───────────────────────────────────────────────────────────────
     section("Alerts")
@@ -476,6 +604,7 @@ with tab_entry:
             "Bought":  "🛒 Bought — Stock purchased from manufacturer",
             "Fridge":  "🧊 Fridge — Stock movement log",
             "Revenue": "📈 Revenue — Daily earnings",
+            "Dividend": "🤝 Dividend — Partner payouts",
         }[x],
     )
 
@@ -556,14 +685,28 @@ with tab_entry:
 
         # ── REVENUE ──────────────────────────────────────────────────────────
         elif sheet_choice == "Revenue":
-            rev_amount = st.number_input("Revenue Amount (₹)", min_value=0.0, step=1.0)
+            rev_amount  = st.number_input("Revenue Amount (₹)", min_value=0.0, step=1.0)
+            rev_comment = st.text_input("Comments (optional)")
 
             if st.form_submit_button("➕ Add Revenue", type="primary"):
                 if rev_amount <= 0:
                     st.error("Revenue must be greater than 0.")
                 else:
-                    append_row("Revenue", [str(entry_date), rev_amount])
+                    append_row("Revenue", [str(entry_date), rev_amount, rev_comment.strip()])
                     st.success(f"✅ Revenue of ₹{rev_amount} added for {entry_date}.")
+
+        # ── DIVIDEND ─────────────────────────────────────────────────────────
+        elif sheet_choice == "Dividend":
+            dc1, dc2 = st.columns(2)
+            div_s = dc1.number_input("Saksham Dividend (₹)", min_value=0.0, step=1.0)
+            div_d = dc2.number_input("Dhairya Dividend (₹)", min_value=0.0, step=1.0)
+
+            if st.form_submit_button("➕ Add Dividend", type="primary"):
+                if div_s + div_d <= 0:
+                    st.error("Enter a dividend amount.")
+                else:
+                    append_row("Dividend", [str(entry_date), div_s + div_d, div_s, div_d])
+                    st.success(f"✅ Dividend of ₹{div_s + div_d:,.0f} added for {entry_date}.")
 
     # ── Recent entries preview ────────────────────────────────────────────────
     st.markdown("")
@@ -578,7 +721,8 @@ with tab_entry:
             show_cols = meta + active_products
         else:
             show_cols = preview_df.columns.tolist()
+                sort_col = "DATE" if "DATE" in preview_df.columns else "Date"
         st.dataframe(
-            preview_df[show_cols].tail(10).sort_values("Date", ascending=False),
+            preview_df[show_cols].tail(10).sort_values(sort_col, ascending=False),
             use_container_width=True, hide_index=True,
         )
