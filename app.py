@@ -721,7 +721,7 @@ with tab_entry:
             show_cols = meta + active_products
         else:
             show_cols = preview_df.columns.tolist()
-                sort_col = "DATE" if "DATE" in preview_df.columns else "Date"
+            sort_col = "DATE" if "DATE" in preview_df.columns else "Date"
         st.dataframe(
             preview_df[show_cols].tail(10).sort_values(sort_col, ascending=False),
             use_container_width=True, hide_index=True,
