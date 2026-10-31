@@ -1,6 +1,11 @@
-streamlit>=1.33.0
-gspread>=6.0.0
-google-auth>=2.28.0
-plotly>=5.20.0
-pandas>=2.1.0
-matplotlib
+streamlit>=1.50,<2
+pandas>=2.1
+plotly>=5.20
+openpyxl>=3.1
+sqlalchemy>=2.0
+gspread>=6.0
+google-auth>=2.28
+# Production database driver (uncomment when moving to Postgres)
+# psycopg[binary]>=3.1
+# Dev
+pytest>=8

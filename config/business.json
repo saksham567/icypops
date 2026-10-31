@@ -1,0 +1,54 @@
+{
+  "_comment": "Default business configuration. If the Google Sheet (or database) has Products / Partners / Settings tables, those take precedence over this file. Keep this file as the fallback and as the template for onboarding a new franchise owner.",
+
+  "business": {
+    "name": "IcyPops",
+    "app_name": "IcyPops Pal",
+    "tagline": "Inventory & Business Intelligence",
+    "logo_emoji": "🍦",
+    "currency_symbol": "₹",
+    "locale": "en-IN"
+  },
+
+  "categories": [
+    {"key": "80ml", "label": "80 ml", "sell_price": 25,  "unit_margin": 10, "fridge_tracked": true,  "sort_order": 1},
+    {"key": "40ml", "label": "40 ml", "sell_price": 15,  "unit_margin": 7,  "fridge_tracked": true,  "sort_order": 2},
+    {"key": "fp",   "label": "Family Pack", "sell_price": 220, "unit_margin": 66, "fridge_tracked": false, "sort_order": 3}
+  ],
+
+  "products": [
+    {"name": "Kala Khatta - 40 ml",     "category": "40ml", "reorder_threshold": 150, "fridge_threshold": 20},
+    {"name": "Kachhi Keri - 40 ml",     "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Mango Bango - 40 ml",     "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Tangy Orange - 40 ml",    "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "STRAWBERRY LOVE - 40 ml", "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Guava Delight - 40 ml",   "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "ZESTY LEMON - 40 ml",     "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "REFRESHING ROSE - 40 ml", "category": "40ml", "reorder_threshold": 50,  "fridge_threshold": 20},
+    {"name": "Tasty Mix Fruit - 40 ml", "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Spicy Jeera - 40 ml",     "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "CHATPATTI IMLI - 40 ml",  "category": "40ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Kala Khatta - 80 ml",     "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Kachhi Keri - 80 ml",     "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Mango Bango - 80 ml",     "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Tangy Orange - 80 ml",    "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "STRAWBERRY LOVE - 80 ml", "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Guava Delight - 80 ml",   "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "ZESTY LEMON - 80 ml",     "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "REFRESHING ROSE - 80 ml", "category": "80ml", "reorder_threshold": 50,  "fridge_threshold": 20},
+    {"name": "Tasty Mix Fruit - 80 ml", "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "Spicy Jeera - 80 ml",     "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "CHATPATTI IMLI - 80 ml",  "category": "80ml", "reorder_threshold": 100, "fridge_threshold": 20},
+    {"name": "FAMILY PACK",             "category": "fp",   "reorder_threshold": 20,  "fridge_threshold": 3}
+  ],
+
+  "partners": [
+    {"name": "Saksham", "share_pct": 35},
+    {"name": "Dhairya", "share_pct": 65}
+  ],
+
+  "expense_types": [
+    "Bought [Stock]", "Bought [Cart]", "Bought [Freezer]", "Delivery [Cart]",
+    "Essentials", "Salary", "Business trip", "Repair", "Marketing", "Rent", "Other"
+  ]
+}
