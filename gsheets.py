@@ -4,7 +4,6 @@ gsheets.py — Google Sheets read/write helper for IcyPops dashboard.
 Authentication uses a Google Service Account key stored in
 Streamlit secrets (st.secrets["gcp_service_account"]).
 """
-
 import streamlit as st
 import gspread
 from google.auth.transport.requests import AuthorizedSession
