@@ -77,6 +77,37 @@ def get_spreadsheet():
     return gc.open_by_key(st.secrets["spreadsheet_id"])
 
 
+def _canon_dividend_header(h: str) -> str:
+    """Map whatever the Dividend sheet headers are spelled as onto the canonical names."""
+    h = str(h).strip().upper()
+    if h.startswith("TOTAL"):
+        return DIV_TOTAL
+    if h.startswith("SAKSHAM"):
+        return DIV_SAKSHAM
+    if h.startswith("DHAIRYA"):
+        return DIV_DHAIRYA
+    if h == "DATE":
+        return "DATE"
+    return h
+
+
+def _read_dividend_sheet(ws) -> pd.DataFrame:
+    """Header-tolerant read for the Dividend sheet (ignores spelling/space/case differences)."""
+    values = ws.get_all_values()
+    if not values:
+        return pd.DataFrame(columns=DIVIDEND_COLS)
+    headers = [_canon_dividend_header(h) for h in values[0]]
+    df = pd.DataFrame(values[1:], columns=headers)
+    for col in DIVIDEND_COLS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[DIVIDEND_COLS]
+    df = df[~(df.apply(lambda r: all(str(x).strip() == "" for x in r), axis=1))]
+    for c in (DIV_TOTAL, DIV_SAKSHAM, DIV_DHAIRYA):
+        df[c] = df[c].astype(str).str.replace(r"[^\d.\-]", "", regex=True)
+    return df.reset_index(drop=True)
+
+
 @st.cache_data(ttl=30)
 def load_sheet(sheet_name: str) -> pd.DataFrame:
     """Load a sheet as a DataFrame. Returns empty DF with correct columns on error."""
@@ -84,8 +115,11 @@ def load_sheet(sheet_name: str) -> pd.DataFrame:
     all_cols = required + SHEET_OPTIONAL_COLS.get(sheet_name, [])
     try:
         ws = get_spreadsheet().worksheet(sheet_name)
-        data = ws.get_all_records(expected_headers=required)
-        df = pd.DataFrame(data)
+        if sheet_name == "Dividend":
+            df = _read_dividend_sheet(ws)
+        else:
+            data = ws.get_all_records(expected_headers=required)
+            df = pd.DataFrame(data)
         for col in all_cols:
             if col not in df.columns:
                 df[col] = "" if col in TEXT_COLS else 0
